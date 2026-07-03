@@ -1,6 +1,20 @@
 import 'package:drift/drift.dart';
 import '../app_database.dart';
 
+const Map<String, String> seriesNames = {
+  'A': '黄色系',
+  'B': '绿色系',
+  'C': '蓝色系',
+  'D': '紫色系',
+  'E': '粉色系',
+  'F': '红色系',
+  'G': '棕色系',
+  'H': '黑白灰',
+  'M': '哑色系',
+};
+
+const List<String> seriesOrder = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'M'];
+
 /// 库存 + 色号信息的联合数据
 class InventoryWithColor {
   final int colorId;
@@ -24,6 +38,12 @@ class InventoryWithColor {
   });
 
   bool get isLowStock => currentQty < 500;
+
+  String get series {
+    final name = colorName; // e.g. "Mard_A1"
+    if (name.length < 6) return '';
+    return name.substring(5, 6); // extracts "A", "B", "C", etc.
+  }
 
   Map<String, dynamic> toMap() => {
     'color_id': colorId,

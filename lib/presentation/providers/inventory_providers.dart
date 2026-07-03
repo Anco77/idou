@@ -103,6 +103,15 @@ class InventoryState {
 
     return result;
   }
+
+  /// 按系列分组
+  Map<String, List<InventoryWithColor>> get groupedItems {
+    final grouped = <String, List<InventoryWithColor>>{};
+    for (final item in filteredItems) {
+      grouped.putIfAbsent(item.series, () => []).add(item);
+    }
+    return grouped;
+  }
 }
 
 /// 库存状态 Provider

@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class UpdateInfo {
@@ -16,27 +18,12 @@ class UpdateInfo {
   });
 }
 
-enum UpdateStatus {
-  idle,
-  checking,
-  available,
-  downloading,
-  downloaded,
-  error,
-}
-
 class AppUpdateService {
   static const _githubOwner = 'Anco77';
   static const _githubRepo = 'idou';
 
   String? _currentVersion;
   UpdateInfo? _updateInfo;
-  UpdateStatus _status = UpdateStatus.idle;
-  double _downloadProgress = 0;
-
-  UpdateStatus get status => _status;
-  double get downloadProgress => _downloadProgress;
-  UpdateInfo? get updateInfo => _updateInfo;
 
   Future<String> getCurrentVersion() async {
     if (_currentVersion != null) return _currentVersion!;
@@ -45,8 +32,9 @@ class AppUpdateService {
     return _currentVersion!;
   }
 
+  String get _targetExtension => Platform.isAndroid ? '.apk' : '.exe';
+
   Future<UpdateInfo?> checkForUpdate() async {
-    _status = UpdateStatus.checking;
     await getCurrentVersion();
 
     try {
@@ -58,42 +46,33 @@ class AppUpdateService {
         headers: {'Accept': 'application/vnd.github.v3+json'},
       ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode != 200) {
-        _status = UpdateStatus.idle;
-        return null;
-      }
+      if (response.statusCode != 200) return null;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final tagName = data['tag_name'] as String? ?? '';
       final version = tagName.startsWith('v') ? tagName.substring(1) : tagName;
 
       final assets = data['assets'] as List<dynamic>? ?? [];
-      final exeAsset = assets.cast<Map<String, dynamic>>().firstWhere(
-        (a) => (a['name'] as String).endsWith('.exe'),
+      final matchedAsset = assets.cast<Map<String, dynamic>>().firstWhere(
+        (a) => (a['name'] as String).endsWith(_targetExtension),
         orElse: () => <String, dynamic>{},
       );
 
-      if (exeAsset.isEmpty) {
-        _status = UpdateStatus.idle;
-        return null;
-      }
+      if (matchedAsset.isEmpty) return null;
 
       final remoteInfo = UpdateInfo(
         version: version,
-        url: exeAsset['browser_download_url'] as String,
+        url: matchedAsset['browser_download_url'] as String,
         releaseNotes: data['body'] as String? ?? '',
       );
 
       if (_isNewerVersion(remoteInfo.version)) {
         _updateInfo = remoteInfo;
-        _status = UpdateStatus.available;
         return remoteInfo;
       }
 
-      _status = UpdateStatus.idle;
       return null;
     } catch (_) {
-      _status = UpdateStatus.idle;
       return null;
     }
   }
@@ -117,23 +96,17 @@ class AppUpdateService {
   Future<String?> downloadUpdate(void Function(double) onProgress) async {
     if (_updateInfo == null) return null;
 
-    _status = UpdateStatus.downloading;
-    _downloadProgress = 0;
-
     try {
-      final tempDir = await getTemporaryDirectory();
+      final dir = await getTemporaryDirectory();
       final fileName = _updateInfo!.url.split('/').last;
-      final filePath = '${tempDir.path}\\$fileName';
+      final filePath = p.join(dir.path, fileName);
       final file = File(filePath);
 
       final response = await http.Client().send(
         http.Request('GET', Uri.parse(_updateInfo!.url)),
       );
 
-      if (response.statusCode != 200) {
-        _status = UpdateStatus.error;
-        return null;
-      }
+      if (response.statusCode != 200) return null;
 
       final totalBytes = response.contentLength ?? 0;
       var receivedBytes = 0;
@@ -143,28 +116,28 @@ class AppUpdateService {
         sink.add(chunk);
         receivedBytes += chunk.length;
         if (totalBytes > 0) {
-          _downloadProgress = receivedBytes / totalBytes;
-          onProgress(_downloadProgress);
+          onProgress(receivedBytes / totalBytes);
         }
       }
 
       await sink.close();
-      _status = UpdateStatus.downloaded;
       return filePath;
     } catch (_) {
-      _status = UpdateStatus.error;
       return null;
     }
   }
 
-  Future<void> installUpdate(String installerPath) async {
-    await Process.run(installerPath, ['/S']);
-    exit(0);
-  }
-
-  void reset() {
-    _status = UpdateStatus.idle;
-    _downloadProgress = 0;
-    _updateInfo = null;
+  Future<bool> installUpdate(String installerPath) async {
+    try {
+      if (Platform.isAndroid) {
+        final result = await OpenFilex.open(installerPath);
+        return result.type == ResultType.done;
+      } else {
+        await Process.run(installerPath, ['/S']);
+        exit(0);
+      }
+    } catch (_) {
+      return false;
+    }
   }
 }

@@ -145,6 +145,12 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
   Future<void> _install() async {
     if (_installerPath == null) return;
     final service = ref.read(appUpdateServiceProvider);
-    await service.installUpdate(_installerPath!);
+    final success = await service.installUpdate(_installerPath!);
+    if (mounted && success) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('安装程序已启动，请完成安装')),
+      );
+    }
   }
 }

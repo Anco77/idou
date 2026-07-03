@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../common/color_card.dart';
 import '../../common/low_stock_banner.dart';
 import '../../common/quantity_selector.dart';
+import '../../common/restock_dialog.dart';
 import 'package:idou/core/database/daos/inventory_dao.dart';
 import '../../providers/inventory_providers.dart';
 
@@ -26,6 +27,11 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       appBar: AppBar(
         title: const Text('库存管理'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_shopping_cart),
+            tooltip: '补货',
+            onPressed: () => _showRestockDialog(context, ref),
+          ),
           IconButton(
             icon: const Icon(Icons.playlist_add),
             tooltip: '批量操作',
@@ -137,6 +143,13 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     }
   }
 
+  Future<void> _showRestockDialog(BuildContext context, WidgetRef ref) async {
+    final result = await RestockDialog.show(context);
+    if (result != null && context.mounted) {
+      ref.read(inventoryStateProvider.notifier).restock(result.colorId, result.quantity);
+    }
+  }
+
   void _showConsume(BuildContext context, WidgetRef ref, int colorId) async {
     final qty = await QuantitySelector.show(context, title: '消耗数量');
     if (qty != null && qty > 0) {
@@ -150,17 +163,35 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   }
 
   void _showInitDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController(text: '1200');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('一键初始化库存'),
-        content: const Text('将所有色号库存重置为 1200 颗？此操作不可撤销。'),
+        title: const Text('初始化库存'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('将所有色号库存重置为指定数量，此操作不可撤销。'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '初始数量（颗）',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
+              final qty = int.tryParse(controller.text) ?? 1200;
+              if (qty <= 0) return;
               Navigator.pop(ctx);
-              ref.read(inventoryStateProvider.notifier).initializeInventory();
+              ref.read(inventoryStateProvider.notifier).initializeInventory(defaultQty: qty);
             },
             child: const Text('确认初始化'),
           ),

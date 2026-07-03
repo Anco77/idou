@@ -160,22 +160,35 @@ class InventoryStateNotifier extends StateNotifier<InventoryState> {
 
   /// 消耗，返回是否成功（库存不足时返回 false）
   Future<bool> consume(int colorId, int quantity) async {
-    final success = await _service.consume(colorId, quantity);
-    await loadInventory();
-    return success;
+    try {
+      final success = await _service.consume(colorId, quantity);
+      await loadInventory();
+      return success;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return false;
+    }
   }
 
   /// 补货
   Future<void> restock(int colorId, int quantity) async {
-    await _service.restock(colorId, quantity);
-    await loadInventory();
+    try {
+      await _service.restock(colorId, quantity);
+      await loadInventory();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   /// 初始化库存
   Future<void> initializeInventory({int defaultQty = 1200}) async {
-    state = state.copyWith(isLoading: true);
-    await _service.initializeInventory(defaultQty: defaultQty);
-    await loadInventory();
+    try {
+      state = state.copyWith(isLoading: true);
+      await _service.initializeInventory(defaultQty: defaultQty);
+      await loadInventory();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 }
 

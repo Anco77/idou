@@ -27,6 +27,11 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         title: const Text('库存管理'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.playlist_add),
+            tooltip: '批量操作',
+            onPressed: () => context.go('/inventory/bulk'),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_backup_restore),
             tooltip: '一键初始化',
             onPressed: () => _showInitDialog(context, ref),

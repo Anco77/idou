@@ -125,9 +125,9 @@ class PatternsDao {
         batch.customStatement(
           'INSERT OR REPLACE INTO pattern_consumptions (pattern_id, color_id, quantity) VALUES (?, ?, ?)',
           [
-            Variable(patternId),
-            Variable.withInt(c['color_id'] as int),
-            Variable.withInt(c['quantity'] as int),
+            patternId,
+            c['color_id'] as int,
+            c['quantity'] as int,
           ],
         );
       }

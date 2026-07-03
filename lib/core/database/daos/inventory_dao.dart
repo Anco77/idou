@@ -205,12 +205,12 @@ class InventoryDao {
           'INSERT INTO inventory_logs (color_id, change_type, quantity, result_qty, pattern_id, created_at) '
           'VALUES (?, ?, ?, ?, ?, ?)',
           [
-            Variable.withInt(entry['color_id'] as int),
-            Variable(entry['change_type'] as String),
-            Variable.withInt(entry['quantity'] as int),
-            Variable.withInt(entry['result_qty'] as int),
-            Variable(entry['pattern_id'] as String?),
-            Variable(DateTime.now().toIso8601String()),
+            entry['color_id'] as int,
+            entry['change_type'] as String,
+            entry['quantity'] as int,
+            entry['result_qty'] as int,
+            entry['pattern_id'] as String?,
+            DateTime.now().toIso8601String(),
           ],
         );
       }

@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import '../../core/database/daos/inventory_dao.dart';
 import '../../domain/repositories/inventory_repository.dart';
 
@@ -111,11 +110,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final colorId = row.data['color_id'] as int;
         batch.customStatement(
           'INSERT INTO inventory (color_id, current_qty, updated_at) VALUES (?, ?, ?)',
-          [Variable.withInt(colorId), Variable.withInt(defaultQty), Variable(now)],
+          [colorId, defaultQty, now],
         );
         batch.customStatement(
           'INSERT INTO inventory_logs (color_id, change_type, quantity, result_qty, created_at) VALUES (?, ?, ?, ?, ?)',
-          [Variable.withInt(colorId), Variable('init'), Variable.withInt(defaultQty), Variable.withInt(defaultQty), Variable(now)],
+          [colorId, 'init', defaultQty, defaultQty, now],
         );
       }
     });

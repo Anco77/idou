@@ -121,6 +121,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
+  Future<void> setQty(int colorId, int quantity) async {
+    final inv = await _dao.getInventory(colorId);
+    final oldQty = inv?.currentQty ?? 0;
+    await _dao.updateQuantity(colorId, quantity);
+    await _dao.addLog(
+      colorId: colorId,
+      changeType: 'set',
+      quantity: quantity - oldQty,
+      resultQty: quantity,
+    );
+  }
+
+  @override
   Future<List<InventoryLogItem>> getLogsForColor(int colorId, {int limit = 50}) {
     return _dao.getLogsForColor(colorId, limit: limit);
   }

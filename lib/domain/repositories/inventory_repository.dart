@@ -20,6 +20,9 @@ abstract class InventoryRepository {
   /// 一键初始化库存
   Future<void> initializeInventory({int defaultQty = 1200});
 
+  /// 设置单个色号库存数量
+  Future<void> setQty(int colorId, int quantity);
+
   /// 获取色号变更历史
   Future<List<InventoryLogItem>> getLogsForColor(int colorId, {int limit = 50});
 

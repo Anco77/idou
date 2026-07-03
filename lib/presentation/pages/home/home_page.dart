@@ -40,7 +40,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('idou - i豆'),
+        title: const Text('idou'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -56,6 +56,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             // 低量预警横幅
             LowStockBanner(
               count: homeState.lowStockCount,
+              total: homeState.totalColors,
               onTap: () {
                 inventoryNotifier.setSortMode(InventorySortMode.byRemaining);
                 context.go('/inventory');

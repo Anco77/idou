@@ -37,6 +37,11 @@ class InventoryService {
     return _repository.initializeInventory(defaultQty: defaultQty);
   }
 
+  /// 设置单个色号数量
+  Future<void> setQty(int colorId, int quantity) {
+    return _repository.setQty(colorId, quantity);
+  }
+
   /// 获取历史
   Future<List<InventoryLogItem>> getLogsForColor(int colorId, {int limit = 50}) {
     return _repository.getLogsForColor(colorId, limit: limit);

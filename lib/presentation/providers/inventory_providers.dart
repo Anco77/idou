@@ -88,16 +88,15 @@ class InventoryState {
             ? a.colorId.compareTo(b.colorId)
             : b.colorId.compareTo(a.colorId));
         break;
-      case InventorySortMode.byRemaining:
-        result.sort((a, b) => ascending
-            ? a.currentQty.compareTo(b.currentQty)
-            : b.currentQty.compareTo(a.currentQty));
-        break;
       case InventorySortMode.byConsumption:
-        // 消耗量排序在UI层处理，这里默认按余量
-        result.sort((a, b) => ascending
-            ? a.currentQty.compareTo(b.currentQty)
-            : b.currentQty.compareTo(a.currentQty));
+      case InventorySortMode.byRemaining:
+        result.sort((a, b) {
+          final cmp = ascending
+              ? a.currentQty.compareTo(b.currentQty)
+              : b.currentQty.compareTo(a.currentQty);
+          if (cmp != 0) return cmp;
+          return a.colorId.compareTo(b.colorId);
+        });
         break;
     }
 
@@ -174,6 +173,16 @@ class InventoryStateNotifier extends StateNotifier<InventoryState> {
   Future<void> restock(int colorId, int quantity) async {
     try {
       await _service.restock(colorId, quantity);
+      await loadInventory();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  /// 设置单个色号数量
+  Future<void> setQty(int colorId, int quantity) async {
+    try {
+      await _service.setQty(colorId, quantity);
       await loadInventory();
     } catch (e) {
       state = state.copyWith(error: e.toString());

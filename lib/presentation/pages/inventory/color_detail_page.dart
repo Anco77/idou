@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../common/quantity_selector.dart';
+import 'package:idou/core/database/daos/inventory_dao.dart';
 import '../../providers/inventory_providers.dart';
 
 class ColorDetailPage extends ConsumerWidget {
@@ -11,6 +13,7 @@ class ColorDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(inventoryStateProvider);
     final notifier = ref.read(inventoryStateProvider.notifier);
+    final logsAsync = ref.watch(colorLogsProvider(colorId));
     final item = state.items.where((i) => i.colorId == colorId).firstOrNull;
 
     if (item == null) {
@@ -75,7 +78,13 @@ class ColorDetailPage extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: () async {
                     final qty = await QuantitySelector.show(context, title: '消耗数量');
-                    if (qty != null) notifier.consume(colorId, qty);
+                    if (qty == null || !context.mounted) return;
+                    final success = await notifier.consume(colorId, qty);
+                    if (!success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('库存不足，无法消耗')),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.remove_circle_outline),
                   label: const Text('消耗'),
@@ -90,7 +99,8 @@ class ColorDetailPage extends ConsumerWidget {
                 child: FilledButton.icon(
                   onPressed: () async {
                     final qty = await QuantitySelector.show(context, title: '补货数量');
-                    if (qty != null) notifier.restock(colorId, qty);
+                    if (qty == null || !context.mounted) return;
+                    await notifier.restock(colorId, qty);
                   },
                   icon: const Icon(Icons.add_circle_outline),
                   label: const Text('补货'),
@@ -120,6 +130,43 @@ class ColorDetailPage extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // 操作记录
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('操作记录', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  logsAsync.when(
+                    data: (logs) {
+                      if (logs.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: Text('暂无操作记录', style: TextStyle(color: Colors.grey)),
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: logs.map((log) => _LogRow(log: log)).toList(),
+                      );
+                    },
+                    loading: () => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                    error: (e, _) => Text('加载失败', style: TextStyle(color: Colors.red[400])),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -142,6 +189,101 @@ class _InfoRow extends StatelessWidget {
             child: Text(label, style: const TextStyle(color: Colors.grey)),
           ),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogRow extends StatelessWidget {
+  final InventoryLogItem log;
+  const _LogRow({required this.log});
+
+  String get _typeLabel {
+    switch (log.changeType) {
+      case 'init':
+        return '初始化';
+      case 'restock':
+        return '补货';
+      case 'consume':
+        return '消耗';
+      case 'deduct_pattern':
+        return '图纸扣除';
+      default:
+        return log.changeType;
+    }
+  }
+
+  Color get _typeColor {
+    switch (log.changeType) {
+      case 'init':
+        return Colors.blue;
+      case 'restock':
+        return Colors.green;
+      case 'consume':
+      case 'deduct_pattern':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData get _typeIcon {
+    switch (log.changeType) {
+      case 'init':
+        return Icons.playlist_add_check;
+      case 'restock':
+        return Icons.add_circle_outline;
+      case 'consume':
+        return Icons.remove_circle_outline;
+      case 'deduct_pattern':
+        return Icons.auto_awesome;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final df = DateFormat('MM-dd HH:mm');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(_typeIcon, size: 18, color: _typeColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _typeLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    color: _typeColor,
+                  ),
+                ),
+                Text(
+                  df.format(log.createdAt),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            log.quantity > 0 ? '+${log.quantity}' : '${log.quantity}',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: log.quantity > 0 ? Colors.green : Colors.red,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '→ ${log.resultQty}',
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
         ],
       ),
     );

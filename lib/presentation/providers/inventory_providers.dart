@@ -149,10 +149,11 @@ class InventoryStateNotifier extends StateNotifier<InventoryState> {
     state = state.copyWith(searchQuery: query);
   }
 
-  /// 消耗
-  Future<void> consume(int colorId, int quantity) async {
-    await _service.consume(colorId, quantity);
+  /// 消耗，返回是否成功（库存不足时返回 false）
+  Future<bool> consume(int colorId, int quantity) async {
+    final success = await _service.consume(colorId, quantity);
     await loadInventory();
+    return success;
   }
 
   /// 补货
@@ -168,3 +169,9 @@ class InventoryStateNotifier extends StateNotifier<InventoryState> {
     await loadInventory();
   }
 }
+
+/// 获取指定色号的操作日志
+final colorLogsProvider = FutureProvider.autoDispose.family<List<InventoryLogItem>, int>((ref, colorId) {
+  final service = ref.watch(inventoryServiceProvider);
+  return service.getLogsForColor(colorId, limit: 50);
+});

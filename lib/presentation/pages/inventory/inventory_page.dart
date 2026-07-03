@@ -119,7 +119,12 @@ class InventoryPage extends ConsumerWidget {
   void _showConsume(BuildContext context, WidgetRef ref, int colorId) async {
     final qty = await QuantitySelector.show(context, title: '消耗数量');
     if (qty != null && qty > 0) {
-      ref.read(inventoryStateProvider.notifier).consume(colorId, qty);
+      final success = await ref.read(inventoryStateProvider.notifier).consume(colorId, qty);
+      if (!success && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('库存不足，无法消耗')),
+        );
+      }
     }
   }
 

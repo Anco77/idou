@@ -90,7 +90,7 @@ class _RestockDialogState extends ConsumerState<RestockDialog> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text('#${c.colorId.toString().padLeft(3, '0')} ${c.colorName}'),
+                  Text('${c.mardId}'),
                 ],
               ),
             )).toList(),

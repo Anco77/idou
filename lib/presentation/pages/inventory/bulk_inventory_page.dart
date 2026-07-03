@@ -189,7 +189,7 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
         ),
       ),
       title: Text(
-        '#${item.colorId.toString().padLeft(3, '0')} ${item.colorName}',
+        '${item.mardId} ${item.colorName}',
         style: const TextStyle(fontSize: 13),
       ),
       subtitle: Text(

@@ -27,7 +27,7 @@ class ColorDetailPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('#${item.colorId.toString().padLeft(3, '0')} ${item.colorName}'),
+        title: Text('${item.mardId} ${item.colorName}'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -122,7 +122,7 @@ class ColorDetailPage extends ConsumerWidget {
                 children: [
                   const Text('颜色信息', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  _InfoRow('色号', '#${item.colorId.toString().padLeft(3, '0')}'),
+                  _InfoRow('色号', item.mardId),
                   _InfoRow('名称', item.colorName),
                   _InfoRow('HEX', item.hexValue),
                   _InfoRow('RGB', '(${item.r}, ${item.g}, ${item.b})'),

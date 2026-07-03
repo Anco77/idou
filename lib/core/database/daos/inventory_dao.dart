@@ -45,6 +45,12 @@ class InventoryWithColor {
     return name.substring(5, 6); // extracts "A", "B", "C", etc.
   }
 
+  String get mardId {
+    final name = colorName; // e.g. "Mard_A1"
+    if (name.length < 6) return '';
+    return name.substring(5); // extracts "A1", "B10", etc.
+  }
+
   Map<String, dynamic> toMap() => {
     'color_id': colorId,
     'color_name': colorName,

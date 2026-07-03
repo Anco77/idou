@@ -46,7 +46,7 @@ class ColorCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '#${item.colorId.toString().padLeft(3, '0')}',
+                      '#${item.mardId}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 12,

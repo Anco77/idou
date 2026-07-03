@@ -26,7 +26,7 @@ enum UpdateStatus {
 }
 
 class AppUpdateService {
-  static const _githubOwner = 'your-username';
+  static const _githubOwner = 'Anco77';
   static const _githubRepo = 'idou';
 
   String? _currentVersion;

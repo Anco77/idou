@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -69,45 +70,84 @@ class AppUpdateService {
   Future<UpdateCheckResult> checkForUpdate() async {
     await getCurrentVersion();
 
-    // Try GitHub API
-    final result = await _checkApi();
+    // 1. Check network connectivity
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.isEmpty || connectivity.contains(ConnectivityResult.none)) {
+      return const CheckFailed('网络未连接，请检查网络设置');
+    }
+
+    // 2. Try GitHub API with exponential backoff (3 attempts)
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      final result = await _tryGithubApi();
+      if (result is CheckFailed && attempt < 3) {
+        await Future.delayed(Duration(seconds: attempt * 2));
+        continue;
+      }
+      if (result case UpdateAvailable(:final info)) {
+        await _cacheUpdateInfo(info);
+        return result;
+      }
+      if (result is NoUpdate) {
+        return result;
+      }
+      break;
+    }
+
+    // 3. Fallback: raw.githubusercontent.com version.json (2 attempts)
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      final result = await _tryFallback(
+        'https://raw.githubusercontent.com/$_githubOwner/$_githubRepo/main/version.json',
+      );
+      if (result case UpdateAvailable(:final info)) {
+        await _cacheUpdateInfo(info);
+        return result;
+      }
+      if (result is NoUpdate) {
+        return result;
+      }
+      if (attempt < 2) {
+        await Future.delayed(Duration(seconds: attempt * 2));
+      }
+    }
+
+    // 4. Fallback: cdn.jsdelivr.net (1 attempt)
+    final result = await _tryFallback(
+      'https://cdn.jsdelivr.net/gh/$_githubOwner/$_githubRepo@main/version.json',
+    );
     if (result case UpdateAvailable(:final info)) {
       await _cacheUpdateInfo(info);
       return result;
     }
-
-    // Try fallback: raw.githubusercontent.com version.json
-    if (result is CheckFailed) {
-      final fallback = await _checkFallback();
-      if (fallback case UpdateAvailable(:final info)) {
-        await _cacheUpdateInfo(info);
-        return fallback;
-      }
+    if (result is NoUpdate) {
+      return result;
     }
 
-    // All remotes failed — try local cache
+    // 5. All remotes failed — try local cache
     final cached = await _readCachedUpdateInfo();
     if (cached != null && _isNewerVersion(cached.version)) {
       return UpdateAvailable(cached);
     }
 
-    return result;
+    return const CheckFailed('检查更新失败，请稍后重试');
   }
 
-  Future<UpdateCheckResult> _checkApi() async {
+  Future<UpdateCheckResult> _tryGithubApi() async {
     try {
       final url = Uri.parse(
         'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest',
       );
       final response = await http
           .get(url, headers: {'Accept': 'application/vnd.github.v3+json'})
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 403) {
-        return const CheckFailed('API 访问受限');
+        return const CheckFailed('');
+      }
+      if (response.statusCode == 404) {
+        return const CheckFailed('暂无发布版本');
       }
       if (response.statusCode != 200) {
-        return CheckFailed('服务器响应异常 (${response.statusCode})');
+        return const CheckFailed('');
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -120,7 +160,7 @@ class AppUpdateService {
             orElse: () => <String, dynamic>{},
           );
 
-      if (matchedAsset.isEmpty) return const CheckFailed('未找到安装包');
+      if (matchedAsset.isEmpty) return const CheckFailed('');
 
       final remoteInfo = UpdateInfo(
         version: version,
@@ -131,55 +171,17 @@ class AppUpdateService {
       if (_isNewerVersion(remoteInfo.version)) return UpdateAvailable(remoteInfo);
       return NoUpdate(remoteInfo.version);
     } catch (_) {
-      // Retry once
-      try {
-        final url = Uri.parse(
-          'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest',
-        );
-        final response = await http
-            .get(url, headers: {'Accept': 'application/vnd.github.v3+json'})
-            .timeout(const Duration(seconds: 15));
-
-        if (response.statusCode != 200) {
-          return const CheckFailed('网络连接失败');
-        }
-
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final tagName = data['tag_name'] as String? ?? '';
-        final version = tagName.startsWith('v') ? tagName.substring(1) : tagName;
-
-        final assets = data['assets'] as List<dynamic>? ?? [];
-        final matchedAsset = assets.cast<Map<String, dynamic>>().firstWhere(
-              (a) => (a['name'] as String).endsWith(_targetExtension),
-              orElse: () => <String, dynamic>{},
-            );
-
-        if (matchedAsset.isEmpty) return const CheckFailed('未找到安装包');
-
-        final remoteInfo = UpdateInfo(
-          version: version,
-          url: matchedAsset['browser_download_url'] as String,
-          releaseNotes: data['body'] as String? ?? '',
-        );
-
-        if (_isNewerVersion(remoteInfo.version)) return UpdateAvailable(remoteInfo);
-        return NoUpdate(remoteInfo.version);
-      } catch (_) {
-        return const CheckFailed('网络连接失败');
-      }
+      return const CheckFailed('');
     }
   }
 
-  Future<UpdateCheckResult> _checkFallback() async {
+  Future<UpdateCheckResult> _tryFallback(String urlString) async {
     try {
-      final url = Uri.parse(
-        'https://raw.githubusercontent.com/$_githubOwner/$_githubRepo/main/version.json',
-      );
-      final response = await http.get(url).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(Uri.parse(urlString))
+          .timeout(const Duration(seconds: 15));
 
-      if (response.statusCode != 200) {
-        return const CheckFailed('网络连接失败');
-      }
+      if (response.statusCode != 200) return const CheckFailed('');
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final version = data['latest'] as String? ?? '';
@@ -189,7 +191,7 @@ class AppUpdateService {
       final downloadUrl = Platform.isAndroid ? apkUrl : exeUrl;
 
       if (version.isEmpty || downloadUrl.isEmpty) {
-        return const CheckFailed('更新信息不完整');
+        return const CheckFailed('');
       }
 
       final remoteInfo = UpdateInfo(
@@ -201,7 +203,7 @@ class AppUpdateService {
       if (_isNewerVersion(remoteInfo.version)) return UpdateAvailable(remoteInfo);
       return NoUpdate(remoteInfo.version);
     } catch (_) {
-      return const CheckFailed('网络连接失败');
+      return const CheckFailed('');
     }
   }
 

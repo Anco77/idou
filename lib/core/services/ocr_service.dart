@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:math';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 class MardIdResult {
@@ -11,6 +11,8 @@ class MardIdResult {
 }
 
 class OcrService {
+  static const _channel = MethodChannel('com.example.idou/ocr');
+
   Future<List<MardIdResult>> recognizeMardIds(
     String imagePath,
     int cropX,
@@ -41,15 +43,16 @@ class OcrService {
       );
 
       final rgba = upsampled.getBytes(order: img.ChannelOrder.rgba);
-      final inputImage = InputImage.fromBitmap(
-        bitmap: rgba,
-        width: upsampled.width,
-        height: upsampled.height,
+      final blocks = await _channel.invokeMethod<List<dynamic>>(
+        'recognizeText',
+        {
+          'bytes': rgba,
+          'width': upsampled.width,
+          'height': upsampled.height,
+        },
       );
 
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-      final result = await textRecognizer.processImage(inputImage);
-      textRecognizer.close();
+      if (blocks == null) return [];
 
       final cellW = cropW / gridCols;
       final cellH = cropH / gridRows;
@@ -57,11 +60,14 @@ class OcrService {
       final results = <MardIdResult>[];
       final seenCells = <int>{};
 
-      for (final block in result.blocks) {
-        final box = block.boundingBox;
-
-        final cx = box.center.dx / us;
-        final cy = box.center.dy / us;
+      for (final block in blocks) {
+        final map = block as Map<dynamic, dynamic>;
+        final left = map['left'] as double;
+        final right = map['right'] as double;
+        final top = map['top'] as double;
+        final bottom = map['bottom'] as double;
+        final cx = (left + right) / 2 / us;
+        final cy = (top + bottom) / 2 / us;
         if (cx < cropX || cx >= cropX + cropW) continue;
         if (cy < cropY || cy >= cropY + cropH) continue;
 
@@ -74,7 +80,7 @@ class OcrService {
         final cellKey = row * gridCols + col;
         if (seenCells.contains(cellKey)) continue;
 
-        var text = block.text.trim().toUpperCase();
+        var text = (map['text'] as String).trim().toUpperCase();
         text = text
             .replaceAll('O', '0')
             .replaceAll('I', '1')

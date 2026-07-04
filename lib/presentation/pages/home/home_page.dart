@@ -5,6 +5,7 @@ import '../../common/low_stock_banner.dart';
 import '../../common/update_dialog.dart';
 import '../../providers/inventory_providers.dart';
 import '../../providers/patterns_providers.dart';
+import '../../providers/settings_providers.dart';
 import '../../../core/services/app_update_service.dart';
 import '../../providers/update_providers.dart';
 import '../../theme/app_colors.dart';
@@ -60,6 +61,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             LowStockBanner(
               count: homeState.lowStockCount,
               total: homeState.totalColors,
+              threshold: ref.read(userSettingsProvider).lowStockThreshold,
               onTap: () {
                 inventoryNotifier.setSortMode(InventorySortMode.byRemaining);
                 context.go('/inventory');

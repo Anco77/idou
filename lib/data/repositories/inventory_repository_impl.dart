@@ -121,6 +121,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
+  Future<void> clearAllData() async {
+    await _dao.db.customUpdate('DELETE FROM inventory');
+    await _dao.db.customUpdate('DELETE FROM inventory_logs');
+  }
+
+  @override
   Future<void> setQty(int colorId, int quantity) async {
     final inv = await _dao.getInventory(colorId);
     final oldQty = inv?.currentQty ?? 0;

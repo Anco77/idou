@@ -4,6 +4,7 @@ import '../../core/database/daos/inventory_dao.dart';
 import '../../data/repositories/inventory_repository_impl.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import '../../domain/services/inventory_service.dart';
+import 'settings_providers.dart';
 
 /// DAO Provider
 final inventoryDaoProvider = Provider<InventoryDao>((ref) {
@@ -125,22 +126,25 @@ class InventoryState {
 final inventoryStateProvider =
     StateNotifierProvider<InventoryStateNotifier, InventoryState>((ref) {
   final service = ref.watch(inventoryServiceProvider);
-  return InventoryStateNotifier(service);
+  return InventoryStateNotifier(service, ref);
 });
 
 class InventoryStateNotifier extends StateNotifier<InventoryState> {
   final InventoryService _service;
+  final Ref _ref;
 
-  InventoryStateNotifier(this._service) : super(const InventoryState()) {
+  InventoryStateNotifier(this._service, this._ref) : super(const InventoryState()) {
     loadInventory();
   }
+
+  int get _threshold => _ref.read(userSettingsProvider).lowStockThreshold;
 
   /// 加载库存数据
   Future<void> loadInventory() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final items = await _service.getAllInventory();
-      final lowStock = await _service.getLowStockColors();
+      final lowStock = await _service.getLowStockColors(threshold: _threshold);
       state = state.copyWith(
         items: items,
         lowStockItems: lowStock,
@@ -202,6 +206,17 @@ class InventoryStateNotifier extends StateNotifier<InventoryState> {
     try {
       state = state.copyWith(isLoading: true);
       await _service.initializeInventory(defaultQty: defaultQty);
+      await loadInventory();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// 清空所有库存数据和操作记录
+  Future<void> clearAllData() async {
+    try {
+      state = state.copyWith(isLoading: true);
+      await _service.clearAllData();
       await loadInventory();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

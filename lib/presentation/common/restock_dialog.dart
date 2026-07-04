@@ -10,12 +10,13 @@ class RestockResult {
 }
 
 class RestockDialog extends ConsumerStatefulWidget {
-  const RestockDialog({super.key});
+  final int defaultQty;
+  const RestockDialog({super.key, this.defaultQty = 100});
 
-  static Future<RestockResult?> show(BuildContext context) {
+  static Future<RestockResult?> show(BuildContext context, {int defaultQty = 100}) {
     return showDialog(
       context: context,
-      builder: (ctx) => const RestockDialog(),
+      builder: (ctx) => RestockDialog(defaultQty: defaultQty),
     );
   }
 
@@ -27,6 +28,12 @@ class _RestockDialogState extends ConsumerState<RestockDialog> {
   String? _selectedSeries;
   InventoryWithColor? _selectedColor;
   final _qtyController = TextEditingController(text: '100');
+
+  @override
+  void initState() {
+    super.initState();
+    _qtyController.text = '${widget.defaultQty}';
+  }
 
   @override
   void dispose() {

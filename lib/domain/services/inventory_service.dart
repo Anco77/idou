@@ -37,6 +37,11 @@ class InventoryService {
     return _repository.initializeInventory(defaultQty: defaultQty);
   }
 
+  /// 清空所有库存数据和操作记录
+  Future<void> clearAllData() {
+    return _repository.clearAllData();
+  }
+
   /// 设置单个色号数量
   Future<void> setQty(int colorId, int quantity) {
     return _repository.setQty(colorId, quantity);

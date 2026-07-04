@@ -5,6 +5,7 @@ import '../../common/color_card.dart';
 import '../../common/low_stock_banner.dart';
 import '../../common/quantity_selector.dart';
 import '../../common/restock_dialog.dart';
+import '../../providers/settings_providers.dart';
 import '../../theme/app_colors.dart';
 import '../../../core/database/daos/inventory_dao.dart';
 import '../../providers/inventory_providers.dart';
@@ -62,6 +63,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
           LowStockBanner(
             count: state.lowStockItems.length,
             total: state.items.length,
+            threshold: ref.read(userSettingsProvider).lowStockThreshold,
             onTap: () {
               notifier.setSortMode(InventorySortMode.byRemaining);
             },
@@ -324,14 +326,16 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   }
 
   void _showRestock(BuildContext context, WidgetRef ref, int colorId) async {
-    final qty = await QuantitySelector.show(context, title: '补货数量');
+    final defaultQty = ref.read(userSettingsProvider).defaultRestockQty;
+    final qty = await QuantitySelector.show(context, title: '补货数量', initialValue: defaultQty);
     if (qty != null && qty > 0) {
       ref.read(inventoryStateProvider.notifier).restock(colorId, qty);
     }
   }
 
   Future<void> _showRestockDialog(BuildContext context, WidgetRef ref) async {
-    final result = await RestockDialog.show(context);
+    final defaultQty = ref.read(userSettingsProvider).defaultRestockQty;
+    final result = await RestockDialog.show(context, defaultQty: defaultQty);
     if (result != null && context.mounted) {
       ref.read(inventoryStateProvider.notifier).restock(result.colorId, result.quantity);
     }

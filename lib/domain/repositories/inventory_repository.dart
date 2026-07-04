@@ -20,6 +20,9 @@ abstract class InventoryRepository {
   /// 一键初始化库存
   Future<void> initializeInventory({int defaultQty = 1200});
 
+  /// 清空所有库存数据和操作记录
+  Future<void> clearAllData();
+
   /// 设置单个色号库存数量
   Future<void> setQty(int colorId, int quantity);
 

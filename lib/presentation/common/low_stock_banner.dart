@@ -4,12 +4,14 @@ import '../theme/app_colors.dart';
 class LowStockBanner extends StatelessWidget {
   final int count;
   final int total;
+  final int threshold;
   final VoidCallback? onTap;
 
   const LowStockBanner({
     super.key,
     required this.count,
     required this.total,
+    this.threshold = 500,
     this.onTap,
   });
 
@@ -39,7 +41,7 @@ class LowStockBanner extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '有 $count 种色号库存不足 500 颗',
+                    '有 $count 种色号库存不足 $threshold 颗',
                     style: const TextStyle(
                       color: AppColors.warning,
                       fontWeight: FontWeight.w500,

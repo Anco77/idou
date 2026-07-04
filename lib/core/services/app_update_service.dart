@@ -16,14 +16,45 @@ class UpdateInfo {
     required this.url,
     required this.releaseNotes,
   });
+
+  Map<String, dynamic> toJson() => {
+        'version': version,
+        'url': url,
+        'releaseNotes': releaseNotes,
+      };
+
+  factory UpdateInfo.fromJson(Map<String, dynamic> json) => UpdateInfo(
+        version: json['version'] as String,
+        url: json['url'] as String,
+        releaseNotes: json['releaseNotes'] as String? ?? '',
+      );
+}
+
+sealed class UpdateCheckResult {
+  const UpdateCheckResult();
+}
+
+class UpdateAvailable extends UpdateCheckResult {
+  final UpdateInfo info;
+  const UpdateAvailable(this.info);
+}
+
+class NoUpdate extends UpdateCheckResult {
+  final String latestVersion;
+  const NoUpdate(this.latestVersion);
+}
+
+class CheckFailed extends UpdateCheckResult {
+  final String message;
+  const CheckFailed(this.message);
 }
 
 class AppUpdateService {
   static const _githubOwner = 'Anco77';
   static const _githubRepo = 'idou';
+  static const _cacheFileName = 'update_cache.json';
 
   String? _currentVersion;
-  UpdateInfo? _updateInfo;
 
   Future<String> getCurrentVersion() async {
     if (_currentVersion != null) return _currentVersion!;
@@ -34,19 +65,43 @@ class AppUpdateService {
 
   String get _targetExtension => Platform.isAndroid ? '.apk' : '.exe';
 
-  Future<UpdateInfo?> checkForUpdate() async {
+  Future<UpdateCheckResult> checkForUpdate() async {
     await getCurrentVersion();
 
+    // Try API
+    final result = await _checkApi();
+    if (result case UpdateAvailable(:final info)) {
+      await _cacheUpdateInfo(info);
+      return result;
+    }
+
+    // API failed — try cache fallback
+    final cached = await _readCachedUpdateInfo();
+    if (cached != null && _isNewerVersion(cached.version)) {
+      return UpdateAvailable(cached);
+    }
+
+    return result;
+  }
+
+  Future<UpdateCheckResult> _checkApi() async {
     try {
       final url = Uri.parse(
         'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest',
       );
-      final response = await http.get(
-        url,
-        headers: {'Accept': 'application/vnd.github.v3+json'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            url,
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          )
+          .timeout(const Duration(seconds: 15));
 
-      if (response.statusCode != 200) return null;
+      if (response.statusCode == 403) {
+        return const CheckFailed('API 访问受限，请稍后重试');
+      }
+      if (response.statusCode != 200) {
+        return CheckFailed('服务器响应异常 (${response.statusCode})');
+      }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final tagName = data['tag_name'] as String? ?? '';
@@ -54,11 +109,13 @@ class AppUpdateService {
 
       final assets = data['assets'] as List<dynamic>? ?? [];
       final matchedAsset = assets.cast<Map<String, dynamic>>().firstWhere(
-        (a) => (a['name'] as String).endsWith(_targetExtension),
-        orElse: () => <String, dynamic>{},
-      );
+            (a) => (a['name'] as String).endsWith(_targetExtension),
+            orElse: () => <String, dynamic>{},
+          );
 
-      if (matchedAsset.isEmpty) return null;
+      if (matchedAsset.isEmpty) {
+        return const CheckFailed('未找到安装包');
+      }
 
       final remoteInfo = UpdateInfo(
         version: version,
@@ -67,11 +124,73 @@ class AppUpdateService {
       );
 
       if (_isNewerVersion(remoteInfo.version)) {
-        _updateInfo = remoteInfo;
-        return remoteInfo;
+        return UpdateAvailable(remoteInfo);
       }
+      return NoUpdate(remoteInfo.version);
+    } catch (e) {
+      // Retry once on network error
+      try {
+        final url = Uri.parse(
+          'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest',
+        );
+        final response = await http
+            .get(
+              url,
+              headers: {'Accept': 'application/vnd.github.v3+json'},
+            )
+            .timeout(const Duration(seconds: 15));
 
-      return null;
+        if (response.statusCode != 200) {
+          return const CheckFailed('网络连接失败，请检查网络设置');
+        }
+
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final tagName = data['tag_name'] as String? ?? '';
+        final version = tagName.startsWith('v') ? tagName.substring(1) : tagName;
+
+        final assets = data['assets'] as List<dynamic>? ?? [];
+        final matchedAsset = assets.cast<Map<String, dynamic>>().firstWhere(
+              (a) => (a['name'] as String).endsWith(_targetExtension),
+              orElse: () => <String, dynamic>{},
+            );
+
+        if (matchedAsset.isEmpty) {
+          return const CheckFailed('未找到安装包');
+        }
+
+        final remoteInfo = UpdateInfo(
+          version: version,
+          url: matchedAsset['browser_download_url'] as String,
+          releaseNotes: data['body'] as String? ?? '',
+        );
+
+        if (_isNewerVersion(remoteInfo.version)) {
+          return UpdateAvailable(remoteInfo);
+        }
+        return NoUpdate(remoteInfo.version);
+      } catch (_) {
+        return const CheckFailed('网络连接失败，请检查网络设置');
+      }
+    }
+  }
+
+  Future<void> _cacheUpdateInfo(UpdateInfo info) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File(p.join(dir.path, _cacheFileName));
+      await file.writeAsString(jsonEncode(info.toJson()));
+    } catch (_) {
+      // cache write failure is non-critical
+    }
+  }
+
+  Future<UpdateInfo?> _readCachedUpdateInfo() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File(p.join(dir.path, _cacheFileName));
+      if (!file.existsSync()) return null;
+      final content = await file.readAsString();
+      return UpdateInfo.fromJson(jsonDecode(content) as Map<String, dynamic>);
     } catch (_) {
       return null;
     }
@@ -94,16 +213,20 @@ class AppUpdateService {
   }
 
   Future<String?> downloadUpdate(void Function(double) onProgress) async {
-    if (_updateInfo == null) return null;
+    // Get the cached UpdateInfo first
+    final cached = await _readCachedUpdateInfo();
+    if (cached == null) return null;
 
     try {
       final dir = await getTemporaryDirectory();
-      final fileName = _updateInfo!.url.split('/').last;
+      final ext = Platform.isAndroid ? '.apk' : '.exe';
+      final platform = Platform.isAndroid ? 'android' : 'windows';
+      final fileName = 'idou-$platform-v${cached.version}$ext';
       final filePath = p.join(dir.path, fileName);
       final file = File(filePath);
 
       final response = await http.Client().send(
-        http.Request('GET', Uri.parse(_updateInfo!.url)),
+        http.Request('GET', Uri.parse(cached.url)),
       );
 
       if (response.statusCode != 200) return null;

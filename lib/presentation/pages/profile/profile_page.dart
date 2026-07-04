@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../common/update_dialog.dart';
+import '../../../core/services/app_update_service.dart';
 import '../../providers/inventory_providers.dart';
 import '../../providers/update_providers.dart';
 import '../../theme/app_colors.dart';
@@ -121,20 +122,26 @@ class ProfilePage extends ConsumerWidget {
 
   Future<void> _checkUpdate(BuildContext context, WidgetRef ref) async {
     final service = ref.read(appUpdateServiceProvider);
-    final updateInfo = await service.checkForUpdate();
+    final result = await service.checkForUpdate();
     if (!context.mounted) return;
 
-    if (updateInfo != null) {
-      await showDialog(
-        context: context,
-        builder: (ctx) => UpdateDialog(updateInfo: updateInfo),
-      );
-    } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前已是最新版本')),
+    switch (result) {
+      case UpdateAvailable(:final info):
+        await showDialog(
+          context: context,
+          builder: (ctx) => UpdateDialog(updateInfo: info),
         );
-      }
+      case NoUpdate(:final latestVersion):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('当前已是最新版本 v$latestVersion')),
+        );
+      case CheckFailed(:final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.orange,
+          ),
+        );
     }
   }
 

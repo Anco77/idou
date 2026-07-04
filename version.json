@@ -1,5 +1,5 @@
 {
-  "latest": "1.1.6",
-  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.6/idou-android-v1.1.6.apk",
-  "notes": "新增: ML Kit OCR识别色号标识(A1/B10)，未识别降级颜色匹配"
+  "latest": "1.1.7",
+  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.7/idou-android-arm64-v8a-v1.1.7.apk",
+  "notes": "修复: ML Kit fromBytes(BGRA8888)取代临时文件、APK拆分(arm64-v8a)减小体积"
 }

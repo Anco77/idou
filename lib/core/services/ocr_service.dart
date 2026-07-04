@@ -1,7 +1,7 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
-import 'package:path_provider/path_provider.dart';
 
 class MardIdResult {
   final int col;
@@ -16,7 +16,11 @@ class OcrService {
     int gridCols,
     int gridRows,
   ) async {
-    const us = 3;
+    const maxDim = 2048;
+    const maxUs = 3;
+    final scale = maxDim / (image.width > image.height ? image.width : image.height);
+    final us = scale < maxUs ? (scale.floor()).clamp(1, maxUs) : maxUs;
+
     final upsampled = img.copyResize(
       image,
       width: image.width * us,
@@ -24,20 +28,28 @@ class OcrService {
       interpolation: img.Interpolation.nearest,
     );
 
-    final tempDir = await getTemporaryDirectory();
-    final tempFile = File(
-      '${tempDir.path}/ocr_${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
-    await tempFile.writeAsBytes(img.encodeJpg(upsampled, quality: 95));
+    final rgba = upsampled.getBytes(order: img.ChannelOrder.rgba);
+    final bgra = Uint8List(rgba.length);
+    for (int i = 0; i < rgba.length; i += 4) {
+      bgra[i] = rgba[i + 2];
+      bgra[i + 1] = rgba[i + 1];
+      bgra[i + 2] = rgba[i];
+      bgra[i + 3] = rgba[i + 3];
+    }
 
-    final inputImage = InputImage.fromFile(tempFile);
+    final inputImage = InputImage.fromBytes(
+      bytes: bgra,
+      metadata: InputImageMetadata(
+        size: Size(upsampled.width.toDouble(), upsampled.height.toDouble()),
+        rotation: InputImageRotation.rotation0deg,
+        format: InputImageFormat.bgra8888,
+        bytesPerRow: upsampled.width * 4,
+      ),
+    );
+
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
     final result = await textRecognizer.processImage(inputImage);
     textRecognizer.close();
-
-    try {
-      await tempFile.delete();
-    } catch (_) {}
 
     final cellW = upsampled.width / gridCols;
     final cellH = upsampled.height / gridRows;

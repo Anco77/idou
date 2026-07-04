@@ -3,3 +3,5 @@ build/
 *.apk
 *.exe
 *.zip
+*.jks
+*.keystore

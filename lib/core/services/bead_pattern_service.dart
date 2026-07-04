@@ -39,7 +39,7 @@ class BeadPatternService {
 
     final cropped = img.copyCrop(image, x: cropX, y: cropY, width: cropW, height: cropH);
     final processed = _preprocess(cropped);
-    final rawPixels = processed.getBytes();
+    final rawPixels = processed.getBytes(order: img.ChannelOrder.rgba);
     final pixels = Uint8List.fromList(rawPixels);
     final w = processed.width;
     final h = processed.height;

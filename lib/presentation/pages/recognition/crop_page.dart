@@ -80,7 +80,7 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
   Size _displaySize() {
     if (_imageSize == null) return const Size(400, 400);
     final screenW = MediaQuery.of(context).size.width;
-    final screenH = MediaQuery.of(context).size.height - 300;
+    final screenH = MediaQuery.of(context).size.height - kToolbarHeight - kBottomNavigationBarHeight - 200;
     final scale = min(screenW / _imageSize!.width, screenH / _imageSize!.height);
     return Size(_imageSize!.width * scale, _imageSize!.height * scale);
   }
@@ -94,7 +94,6 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
 
   void _handleNext() {
     if (_imagePath == null) return;
-    // Use a sensible default viewport size for coordinate mapping
     final ivSize = Size(MediaQuery.of(context).size.width,
         MediaQuery.of(context).size.height - 300);
     final cropRect = _computeCropRectInImage(ivSize);
@@ -121,17 +120,17 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
       ),
       body: _imagePath == null
           ? const Center(child: CircularProgressIndicator())
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final maxW = constraints.maxWidth;
-                final maxH = constraints.maxHeight;
-                _initCropRect(maxW, maxH);
+          : Column(
+              children: [
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final maxW = constraints.maxWidth;
+                      final maxH = constraints.maxHeight;
+                      _initCropRect(maxW, maxH);
 
-                final displaySize = _displaySize();
-                return Column(
-                  children: [
-                    Expanded(
-                      child: Stack(
+                      final displaySize = _displaySize();
+                      return Stack(
                         children: [
                           InteractiveViewer(
                             transformationController: _transformController,
@@ -147,63 +146,38 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
                               ),
                             ),
                           ),
-                          ..._buildOverlay(maxW, maxH),
+                          _buildOverlay(maxW, maxH),
                           _buildFrame(),
+                          _buildDragHandle(),
                           ..._buildCornerHandles(maxW, maxH),
                         ],
-                      ),
-                    ),
-                    _buildBottomBar(),
-                  ],
-                );
-              },
+                      );
+                    },
+                  ),
+                ),
+                _buildBottomBar(),
+              ],
             ),
     );
   }
 
-  List<Widget> _buildOverlay(double maxW, double maxH) {
-    return [
-      Positioned(top: 0, left: 0, right: 0, height: _cropY,
-        child: GestureDetector(
-          onPanUpdate: (d) => setState(() {
-            _cropX += d.delta.dx;
-            _cropY += d.delta.dy;
-            _clampCrop(maxW, maxH);
-          }),
-          child: Container(color: Colors.black54),
-        ),
-      ),
-      Positioned(top: _cropY + _cropH, left: 0, right: 0, bottom: 0,
-        child: GestureDetector(
-          onPanUpdate: (d) => setState(() {
-            _cropX += d.delta.dx;
-            _cropY += d.delta.dy;
-            _clampCrop(maxW, maxH);
-          }),
-          child: Container(color: Colors.black54),
-        ),
-      ),
-      Positioned(top: _cropY, left: 0, width: _cropX, height: _cropH,
-        child: GestureDetector(
-          onPanUpdate: (d) => setState(() {
-            _cropX += d.delta.dx;
-            _cropY += d.delta.dy;
-            _clampCrop(maxW, maxH);
-          }),
-          child: Container(color: Colors.black54),
-        ),
-      ),
-      Positioned(top: _cropY, left: _cropX + _cropW, right: 0, height: _cropH,
-        child: GestureDetector(
-          onPanUpdate: (d) => setState(() {
-            _cropX += d.delta.dx;
-            _cropY += d.delta.dy;
-            _clampCrop(maxW, maxH);
-          }),
-          child: Container(color: Colors.black54),
-        ),
-      ),
-    ];
+  Widget _buildOverlay(double maxW, double maxH) {
+    return Stack(
+      children: [
+        if (_cropY > 0)
+          Positioned(top: 0, left: 0, right: 0, height: _cropY,
+            child: IgnorePointer(child: Container(color: Colors.black54))),
+        if (_cropY + _cropH < maxH)
+          Positioned(top: _cropY + _cropH, left: 0, right: 0, bottom: 0,
+            child: IgnorePointer(child: Container(color: Colors.black54))),
+        if (_cropX > 0)
+          Positioned(top: _cropY, left: 0, width: _cropX, height: _cropH,
+            child: IgnorePointer(child: Container(color: Colors.black54))),
+        if (_cropX + _cropW < maxW)
+          Positioned(top: _cropY, left: _cropX + _cropW, right: 0, height: _cropH,
+            child: IgnorePointer(child: Container(color: Colors.black54))),
+      ],
+    );
   }
 
   Widget _buildFrame() {
@@ -215,6 +189,39 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
           decoration: BoxDecoration(
             border: Border.all(color: Colors.white, width: 2),
             borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDragHandle() {
+    const handleHeight = 10.0;
+    return Positioned(
+      top: _cropY - handleHeight,
+      left: _cropX,
+      width: _cropW,
+      height: handleHeight * 2,
+      child: GestureDetector(
+        onPanUpdate: (d) {
+          setState(() {
+            final maxW = MediaQuery.of(context).size.width;
+            final maxH = MediaQuery.of(context).size.height - 300;
+            _cropX += d.delta.dx;
+            _cropY += d.delta.dy;
+            _clampCrop(maxW, maxH);
+          });
+        },
+        child: Container(
+          color: Colors.transparent,
+          alignment: Alignment.center,
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white70,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
       ),

@@ -93,7 +93,7 @@ class BeadPatternService {
 
     final ocrService = OcrService();
     final ocrResults = await ocrService.recognizeMardIds(
-      cropped, gridCols, gridRows,
+      imagePath, cropX, cropY, cropW, cropH, gridCols, gridRows,
     );
 
     final ocrGrid = <int, int>{};

@@ -8,7 +8,6 @@ import '../pages/inventory/bulk_inventory_page.dart';
 import '../pages/inventory/operation_history_page.dart';
 import '../pages/recognition/upload_page.dart';
 import '../pages/recognition/recognition_result_page.dart';
-import '../pages/recognition/crop_page.dart';
 import '../pages/patterns/patterns_page.dart';
 import '../pages/patterns/pattern_detail_page.dart';
 import '../pages/ai_generate/ai_generate_page.dart';
@@ -84,10 +83,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/recognition/upload',
         builder: (context, state) => const UploadPage(),
-      ),
-      GoRoute(
-        path: '/recognition/crop',
-        builder: (context, state) => const CropPageForRecognition(),
       ),
       GoRoute(
         path: '/recognition/result',

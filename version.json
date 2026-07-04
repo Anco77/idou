@@ -1,5 +1,5 @@
 {
-  "latest": "1.3.4",
-  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.3.4/idou-android-arm64-v8a-v1.3.4.apk",
-  "notes": "修复: pubspec.yaml添assets/tessdata/资产声明"
+  "latest": "1.4.0",
+  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.4.0/idou-android-arm64-v8a-v1.4.0.apk",
+  "notes": "重构: 全自动网格检测+Tesseract OCR，删除手动裁剪"
 }

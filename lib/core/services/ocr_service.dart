@@ -72,7 +72,7 @@ class OcrService {
     } catch (_) {}
 
     final hocrRegex = RegExp(
-      r"span class='ocr_word'.*?bbox (\d+) (\d+) (\d+) (\d+).*?>(.*?)<",
+      r"span class='ocrx?word'.*?bbox (\d+) (\d+) (\d+) (\d+).*?>(.*?)<",
       dotAll: true,
     );
 
@@ -91,6 +91,8 @@ class OcrService {
 
       final cx = ((x1 + x2) / 2) / us;
       final cy = ((y1 + y2) / 2) / us;
+
+      if (cx < 0 || cx >= actualCropW || cy < 0 || cy >= actualCropH) continue;
 
       final col = (cx / cellW).round();
       final row = (cy / cellH).round();

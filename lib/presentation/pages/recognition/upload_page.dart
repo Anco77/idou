@@ -4,11 +4,18 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/services/ocr_service.dart';
 
-class UploadPage extends ConsumerWidget {
+class UploadPage extends ConsumerStatefulWidget {
   const UploadPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UploadPage> createState() => _UploadPageState();
+}
+
+class _UploadPageState extends ConsumerState<UploadPage> {
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('上传图纸'),
@@ -21,6 +28,16 @@ class UploadPage extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            if (_error != null) ...[
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red, fontSize: 15),
+              ),
+              const SizedBox(height: 24),
+            ],
             const Icon(Icons.upload_file, size: 80, color: Colors.grey),
             const SizedBox(height: 16),
             const Text(
@@ -61,12 +78,12 @@ class UploadPage extends ConsumerWidget {
     final image = await picker.pickImage(source: source, maxWidth: 1920);
     if (image == null) return;
 
-    // 自动检测网格
+    setState(() => _error = null);
+
     final service = OcrService();
     final grid = await service.detectGrid(image.path);
 
     if (grid != null) {
-      // 检测到网格，直接跳转到结果页
       context.push('/recognition/result', extra: {
         'imagePath': image.path,
         'cropX': grid.cropX,
@@ -77,8 +94,9 @@ class UploadPage extends ConsumerWidget {
         'gridRows': grid.gridRows,
       });
     } else {
-      // 未检测到网格，跳转到手动裁剪页
-      context.push('/recognition/crop', extra: image.path);
+      setState(() {
+        _error = '未检测到网格，请确认图纸清晰完整\n建议使用截图而非拍照';
+      });
     }
   }
 }

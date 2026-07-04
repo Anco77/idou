@@ -35,9 +35,21 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
     final state = ref.watch(inventoryStateProvider);
     final notifier = ref.read(inventoryStateProvider.notifier);
     final grouped = state.groupedItems;
+    final allColorIds = state.items.map((i) => i.colorId).toSet();
+    final allSelected = _selectedColorIds.length == allColorIds.length && allColorIds.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('批量操作')),
+      appBar: AppBar(
+        title: const Text('批量操作'),
+        actions: [
+          TextButton(
+            onPressed: allSelected
+                ? () => setState(() => _selectedColorIds.clear())
+                : () => setState(() => _selectedColorIds.addAll(allColorIds)),
+            child: Text(allSelected ? '取消全选' : '全选'),
+          ),
+        ],
+      ),
       body: grouped.isEmpty
           ? const Center(child: Text('没有数据'))
           : ListView(
@@ -88,6 +100,8 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
     final isExpanded = _expandedSeries.contains(series);
     final color = _seriesColor(series);
     final selectedInSeries = items.where((i) => _selectedColorIds.contains(i.colorId)).length;
+    final seriesSelected = selectedInSeries == items.length;
+    final seriesPartial = selectedInSeries > 0 && !seriesSelected;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,6 +120,33 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (seriesSelected) {
+                        for (final item in items) {
+                          _selectedColorIds.remove(item.colorId);
+                        }
+                      } else {
+                        for (final item in items) {
+                          _selectedColorIds.add(item.colorId);
+                        }
+                      }
+                    });
+                  },
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: seriesPartial
+                        ? Icon(Icons.indeterminate_check_box, color: Colors.blue[400], size: 24)
+                        : Icon(
+                            seriesSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                            color: seriesSelected ? Colors.blue : Colors.grey[400],
+                            size: 24,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 4),
                 Container(
                   width: 28,
                   height: 28,
@@ -142,7 +183,7 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '已选$selectedInSeries',
+                      '$selectedInSeries/${items.length}',
                       style: TextStyle(fontSize: 10, color: Colors.blue[600]),
                     ),
                   ),
@@ -189,7 +230,7 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
         ),
       ),
       title: Text(
-        '${item.mardId} ${item.colorName}',
+        item.mardId,
         style: const TextStyle(fontSize: 13),
       ),
       subtitle: Text(
@@ -212,7 +253,7 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
     if (qty == null || qty <= 0) return;
 
     final label = action == 'restock' ? '补货' : '消耗';
-    final messenger = ScaffoldMessenger.of(context);
+    final count = _selectedColorIds.length;
 
     for (final colorId in _selectedColorIds) {
       if (action == 'restock') {
@@ -224,8 +265,8 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
 
     if (context.mounted) {
       setState(() => _selectedColorIds.clear());
-      messenger.showSnackBar(
-        SnackBar(content: Text('已${label}${_selectedColorIds.length}个色号，每个$qty颗')),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已${label}$count个色号，每个$qty颗')),
       );
     }
   }

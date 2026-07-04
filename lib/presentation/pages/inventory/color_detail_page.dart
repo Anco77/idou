@@ -26,7 +26,7 @@ class ColorDetailPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${item.mardId} ${item.colorName}'),
+        title: Text(item.mardId),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

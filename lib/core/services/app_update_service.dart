@@ -10,23 +10,27 @@ import 'package:path_provider/path_provider.dart';
 class UpdateInfo {
   final String version;
   final String url;
+  final String? mirrorUrl;
   final String releaseNotes;
 
   const UpdateInfo({
     required this.version,
     required this.url,
+    this.mirrorUrl,
     required this.releaseNotes,
   });
 
   Map<String, dynamic> toJson() => {
         'version': version,
         'url': url,
+        if (mirrorUrl != null) 'mirrorUrl': mirrorUrl,
         'releaseNotes': releaseNotes,
       };
 
   factory UpdateInfo.fromJson(Map<String, dynamic> json) => UpdateInfo(
         version: json['version'] as String,
         url: json['url'] as String,
+        mirrorUrl: json['mirrorUrl'] as String?,
         releaseNotes: json['releaseNotes'] as String? ?? '',
       );
 }
@@ -54,6 +58,7 @@ class AppUpdateService {
   static const _githubOwner = 'Anco77';
   static const _githubRepo = 'idou';
   static const _cacheFileName = 'update_cache.json';
+  static const _mirrorPrefix = 'https://ghproxy.com/';
 
   String? _currentVersion;
 
@@ -162,9 +167,11 @@ class AppUpdateService {
 
       if (matchedAsset.isEmpty) return const CheckFailed('');
 
+      final downloadUrl = matchedAsset['browser_download_url'] as String;
       final remoteInfo = UpdateInfo(
         version: version,
-        url: matchedAsset['browser_download_url'] as String,
+        url: downloadUrl,
+        mirrorUrl: '$_mirrorPrefix$downloadUrl',
         releaseNotes: data['body'] as String? ?? '',
       );
 
@@ -189,6 +196,7 @@ class AppUpdateService {
       final apkUrl = data['apk_url'] as String? ?? '';
       final exeUrl = data['exe_url'] as String? ?? '';
       final downloadUrl = Platform.isAndroid ? apkUrl : exeUrl;
+      final mirrorUrl = data['download_mirror'] as String? ?? '$_mirrorPrefix$downloadUrl';
 
       if (version.isEmpty || downloadUrl.isEmpty) {
         return const CheckFailed('');
@@ -197,6 +205,7 @@ class AppUpdateService {
       final remoteInfo = UpdateInfo(
         version: version,
         url: downloadUrl,
+        mirrorUrl: mirrorUrl,
         releaseNotes: data['notes'] as String? ?? '',
       );
 
@@ -247,35 +256,42 @@ class AppUpdateService {
     final cached = await _readCachedUpdateInfo();
     if (cached == null) return null;
 
-    try {
-      final dir = await getTemporaryDirectory();
-      final fileName = 'idou-$_platformName-v${cached.version}$_targetExtension';
-      final filePath = p.join(dir.path, fileName);
-      final file = File(filePath);
+    final urls = <String>[];
+    if (cached.mirrorUrl != null) urls.add(cached.mirrorUrl!);
+    urls.add(cached.url);
 
-      final response = await http.Client().send(
-        http.Request('GET', Uri.parse(cached.url)),
-      );
+    for (final urlString in urls) {
+      try {
+        final dir = await getTemporaryDirectory();
+        final fileName = 'idou-$_platformName-v${cached.version}$_targetExtension';
+        final filePath = p.join(dir.path, fileName);
+        final file = File(filePath);
 
-      if (response.statusCode != 200) return null;
+        final uri = Uri.parse(urlString);
+        final request = http.Request('GET', uri);
+        final response = await http.Client().send(request).timeout(const Duration(seconds: 60));
 
-      final totalBytes = response.contentLength ?? 0;
-      var receivedBytes = 0;
-      final sink = file.openWrite(mode: FileMode.write);
+        if (response.statusCode != 200) continue;
 
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        receivedBytes += chunk.length;
-        if (totalBytes > 0) {
-          onProgress(receivedBytes / totalBytes);
+        final totalBytes = response.contentLength ?? 0;
+        var receivedBytes = 0;
+        final sink = file.openWrite(mode: FileMode.write);
+
+        await for (final chunk in response.stream) {
+          sink.add(chunk);
+          receivedBytes += chunk.length;
+          if (totalBytes > 0) {
+            onProgress(receivedBytes / totalBytes);
+          }
         }
-      }
 
-      await sink.close();
-      return filePath;
-    } catch (_) {
-      return null;
+        await sink.close();
+        return filePath;
+      } catch (_) {
+        continue;
+      }
     }
+    return null;
   }
 
   Future<bool> installUpdate(String installerPath) async {

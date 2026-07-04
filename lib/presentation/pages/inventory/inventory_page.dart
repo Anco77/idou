@@ -34,29 +34,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('库存管理'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_shopping_cart),
-            tooltip: '补货',
-            onPressed: () => _showRestockDialog(context, ref),
-          ),
-          IconButton(
-            icon: const Icon(Icons.playlist_add),
-            tooltip: '批量操作',
-            onPressed: () => context.go('/inventory/bulk'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: '操作历史',
-            onPressed: () => context.go('/inventory/history'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_backup_restore),
-            tooltip: '一键初始化',
-            onPressed: () => _showInitDialog(context, ref),
-          ),
-        ],
+        title: const Text('库存管理', textAlign: TextAlign.center),
+        centerTitle: true,
       ),
       body: Column(
         children: [
@@ -69,6 +48,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             },
           ),
           _buildSearchBar(state, notifier),
+          _buildToolbar(context, ref, state, notifier),
           _buildStatsRow(state),
           const SizedBox(height: 4),
           Expanded(child: _buildSeriesList(state, notifier)),
@@ -80,67 +60,40 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   Widget _buildSearchBar(InventoryState state, InventoryStateNotifier notifier) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: '搜索色号或名称...',
-                hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: state.searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          notifier.setSearchQuery('');
-                        },
-                      )
-                    : null,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-              style: const TextStyle(fontSize: 13),
-              onChanged: (v) => notifier.setSearchQuery(v),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: '搜索色号或名称...',
+          hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: state.searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    notifier.setSearchQuery('');
+                  },
+                )
+              : null,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          const SizedBox(width: 8),
-          _SortChip(
-            label: '色号',
-            active: state.sortMode == InventorySortMode.byColorId,
-            ascending: state.ascending,
-            onTap: () => notifier.setSortMode(InventorySortMode.byColorId),
-          ),
-          const SizedBox(width: 4),
-          _SortChip(
-            label: '余量',
-            active: state.sortMode == InventorySortMode.byRemaining,
-            ascending: state.ascending,
-            onTap: () => notifier.setSortMode(InventorySortMode.byRemaining),
-          ),
-          const SizedBox(width: 4),
-          _SortChip(
-            label: '消耗',
-            active: state.sortMode == InventorySortMode.byConsumption,
-            ascending: state.ascending,
-            onTap: () => notifier.setSortMode(InventorySortMode.byConsumption),
-          ),
-        ],
+        ),
+        style: const TextStyle(fontSize: 13),
+        onChanged: (v) => notifier.setSearchQuery(v),
       ),
     );
   }
@@ -164,6 +117,107 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
           ),
           const SizedBox(width: 8),
           _StatChip(label: '总库存', value: '$totalQty'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbar(BuildContext context, WidgetRef ref, InventoryState state, InventoryStateNotifier notifier) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
+      child: Row(
+        children: [
+          _SortChip(
+            label: '色号',
+            active: state.sortMode == InventorySortMode.byColorId,
+            ascending: state.ascending,
+            onTap: () => notifier.setSortMode(InventorySortMode.byColorId),
+          ),
+          const SizedBox(width: 4),
+          _SortChip(
+            label: '余量',
+            active: state.sortMode == InventorySortMode.byRemaining,
+            ascending: state.ascending,
+            onTap: () => notifier.setSortMode(InventorySortMode.byRemaining),
+          ),
+          const SizedBox(width: 4),
+          _SortChip(
+            label: '消耗',
+            active: state.sortMode == InventorySortMode.byConsumption,
+            ascending: state.ascending,
+            onTap: () => notifier.setSortMode(InventorySortMode.byConsumption),
+          ),
+          const Spacer(),
+          SizedBox(
+            height: 32,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => _showRestockDialog(context, ref),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    height: 32,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_shopping_cart, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text('补货', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => context.go('/inventory/bulk'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    height: 32,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.playlist_add, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text('批量', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => context.go('/inventory/history'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    height: 32,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.history, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text('历史', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -390,43 +444,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     );
   }
 
-  void _showInitDialog(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController(text: '1200');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('初始化库存'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('将所有色号库存重置为指定数量，此操作不可撤销。'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '初始数量（颗）',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            onPressed: () {
-              final qty = int.tryParse(controller.text) ?? 1200;
-              if (qty <= 0) return;
-              Navigator.pop(ctx);
-              ref.read(inventoryStateProvider.notifier).initializeInventory(defaultQty: qty);
-            },
-            child: const Text('确认初始化'),
-          ),
-        ],
-      ),
-    );
-  }
+
 }
 
 class _SeriesSection extends StatelessWidget {

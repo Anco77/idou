@@ -173,6 +173,13 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.restart_alt, color: AppColors.primary),
+                  title: const Text('初始化库存'),
+                  subtitle: const Text('将所有色号库存重置为指定数量'),
+                  onTap: () => _showInitDialog(context, ref),
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.cleaning_services, color: AppColors.primary),
                   title: const Text('清空所有库存数据'),
                   subtitle: const Text('清空所有色号数量和操作记录'),
@@ -306,6 +313,44 @@ class ProfilePage extends ConsumerWidget {
           ),
         );
     }
+  }
+
+  void _showInitDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController(text: '1200');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('初始化库存'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('将所有色号库存重置为指定数量，此操作不可撤销。'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '初始数量（颗）',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () {
+              final qty = int.tryParse(controller.text) ?? 1200;
+              if (qty <= 0) return;
+              Navigator.pop(ctx);
+              ref.read(inventoryStateProvider.notifier).initializeInventory(defaultQty: qty);
+            },
+            child: const Text('确认初始化'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showClearDialog(BuildContext context, WidgetRef ref) {

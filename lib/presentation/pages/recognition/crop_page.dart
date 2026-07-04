@@ -38,7 +38,14 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
     final bytes = await File(path).readAsBytes();
     final image = img.decodeImage(bytes);
     if (image != null && mounted) {
-      setState(() => _imageSize = Size(image.width.toDouble(), image.height.toDouble()));
+      final imgSize = Size(image.width.toDouble(), image.height.toDouble());
+      final screenW = MediaQuery.of(context).size.width;
+      final screenH = MediaQuery.of(context).size.height - kToolbarHeight - kBottomNavigationBarHeight - 200;
+      final scale = min(screenW / imgSize.width, screenH / imgSize.height);
+      _transformController.value = Matrix4.diagonal3Values(scale, scale, 1);
+      if (mounted) {
+        setState(() => _imageSize = imgSize);
+      }
     }
   }
 
@@ -58,31 +65,20 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
     super.dispose();
   }
 
-  Rect _computeCropRectInImage(Size ivSize) {
+  Rect _computeCropRectInImage() {
     final cropRectScreen = Rect.fromLTWH(_cropX, _cropY, _cropW, _cropH);
     final matrix = _transformController.value;
     final inverse = Matrix4.inverted(matrix);
     final tl = MatrixUtils.transformPoint(inverse, cropRectScreen.topLeft);
     final br = MatrixUtils.transformPoint(inverse, cropRectScreen.bottomRight);
-    final cropInChild = Rect.fromLTRB(tl.dx, tl.dy, br.dx, br.dy);
     final imgW = _imageSize!.width;
     final imgH = _imageSize!.height;
-    final displayW = _displaySize().width;
-    final displayH = _displaySize().height;
-    return Rect.fromLTWH(
-      (cropInChild.left / displayW * imgW).clamp(0, imgW),
-      (cropInChild.top / displayH * imgH).clamp(0, imgH),
-      (cropInChild.width / displayW * imgW).clamp(1, imgW),
-      (cropInChild.height / displayH * imgH).clamp(1, imgH),
+    return Rect.fromLTRB(
+      tl.dx.clamp(0, imgW),
+      tl.dy.clamp(0, imgH),
+      br.dx.clamp(1, imgW),
+      br.dy.clamp(1, imgH),
     );
-  }
-
-  Size _displaySize() {
-    if (_imageSize == null) return const Size(400, 400);
-    final screenW = MediaQuery.of(context).size.width;
-    final screenH = MediaQuery.of(context).size.height - kToolbarHeight - kBottomNavigationBarHeight - 200;
-    final scale = min(screenW / _imageSize!.width, screenH / _imageSize!.height);
-    return Size(_imageSize!.width * scale, _imageSize!.height * scale);
   }
 
   void _clampCrop(double maxW, double maxH) {
@@ -94,9 +90,7 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
 
   void _handleNext() {
     if (_imagePath == null) return;
-    final ivSize = Size(MediaQuery.of(context).size.width,
-        MediaQuery.of(context).size.height - 300);
-    final cropRect = _computeCropRectInImage(ivSize);
+    final cropRect = _computeCropRectInImage();
     context.push('/recognition/result', extra: {
       'imagePath': _imagePath,
       'cropX': cropRect.left.round(),
@@ -118,7 +112,7 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: _imagePath == null
+      body: _imagePath == null || _imageSize == null
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -129,7 +123,6 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
                       final maxH = constraints.maxHeight;
                       _initCropRect(maxW, maxH);
 
-                      final displaySize = _displaySize();
                       return Stack(
                         children: [
                           InteractiveViewer(
@@ -138,8 +131,8 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
                             minScale: 0.1,
                             maxScale: 4.0,
                             child: SizedBox(
-                              width: displaySize.width,
-                              height: displaySize.height,
+                              width: _imageSize!.width,
+                              height: _imageSize!.height,
                               child: Image.file(
                                 File(_imagePath!),
                                 fit: BoxFit.fill,

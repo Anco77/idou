@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:typed_data';
 import 'package:delta_e/delta_e.dart';
 import 'package:flutter/material.dart';
@@ -35,24 +36,65 @@ class MatchResult {
   });
 }
 
+class _Candidate {
+  final StandardColor color;
+  final double dist;
+  _Candidate(this.color, this.dist);
+}
+
+void _siftDown(List<_Candidate> heap, int i) {
+  final n = heap.length;
+  while (true) {
+    int largest = i;
+    final left = 2 * i + 1;
+    final right = 2 * i + 2;
+    if (left < n && heap[left].dist > heap[largest].dist) largest = left;
+    if (right < n && heap[right].dist > heap[largest].dist) largest = right;
+    if (largest == i) break;
+    final tmp = heap[i];
+    heap[i] = heap[largest];
+    heap[largest] = tmp;
+    i = largest;
+  }
+}
+
 class ColorMatcher {
   final List<StandardColor> _standardColors;
+  final HashMap<int, LabColor> _labCache = HashMap<int, LabColor>();
 
   ColorMatcher(this._standardColors);
 
   MatchResult findNearest(int r, int g, int b) {
-    final pixelLab = LabColor.fromRGB(r, g, b);
-    StandardColor? best;
-    double minDistance = double.infinity;
+    final key = (r << 16) | (g << 8) | b;
+    final pixelLab = _labCache.putIfAbsent(key, () => LabColor.fromRGB(r, g, b));
 
+    const topN = 5;
+    final heap = <_Candidate>[];
     for (final color in _standardColors) {
-      final distance = deltaE00(pixelLab, color.lab);
-      if (distance < minDistance) {
-        minDistance = distance;
-        best = color;
+      final dr = r - color.r;
+      final dg = g - color.g;
+      final db = b - color.b;
+      final d = (dr * dr + dg * dg + db * db).toDouble();
+      if (heap.length < topN) {
+        heap.add(_Candidate(color, d));
+        if (heap.length == topN) {
+          for (int i = topN ~/ 2 - 1; i >= 0; i--) _siftDown(heap, i);
+        }
+      } else if (d < heap[0].dist) {
+        heap[0] = _Candidate(color, d);
+        _siftDown(heap, 0);
       }
     }
 
+    StandardColor? best;
+    double minDistance = double.infinity;
+    for (final c in heap) {
+      final dist = deltaE00(pixelLab, c.color.lab);
+      if (dist < minDistance) {
+        minDistance = dist;
+        best = c.color;
+      }
+    }
     return MatchResult(color: best!, distance: minDistance);
   }
 

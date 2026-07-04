@@ -1,6 +1,6 @@
 {
-  "latest": "1.1.4",
-  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.4/idou-android-v1.1.4.apk",
-  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.4/idou-windows-v1.1.4.exe",
-  "notes": "新增: CIEDE2000感知色差匹配、颜色合并滑块(ΔE可调)，提高识别准确度"
+  "latest": "1.1.5",
+  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.5/idou-android-v1.1.5.apk",
+  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.5/idou-windows-v1.1.5.exe",
+  "notes": "优化: CIEDE2000两步预筛性能(卡死修复)、裁剪页图片可缩小/可自由拖动"
 }

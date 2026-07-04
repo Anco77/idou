@@ -46,6 +46,11 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             onPressed: () => context.go('/inventory/bulk'),
           ),
           IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '操作历史',
+            onPressed: () => context.go('/inventory/history'),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_backup_restore),
             tooltip: '一键初始化',
             onPressed: () => _showInitDialog(context, ref),
@@ -125,6 +130,13 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             active: state.sortMode == InventorySortMode.byRemaining,
             ascending: state.ascending,
             onTap: () => notifier.setSortMode(InventorySortMode.byRemaining),
+          ),
+          const SizedBox(width: 4),
+          _SortChip(
+            label: '消耗',
+            active: state.sortMode == InventorySortMode.byConsumption,
+            ascending: state.ascending,
+            onTap: () => notifier.setSortMode(InventorySortMode.byConsumption),
           ),
         ],
       ),
@@ -229,8 +241,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       return Center(child: Text('加载失败: ${state.error}'));
     }
 
-    // 余量排序：扁平列表，按余量升序 + 色号升序排列
-    if (state.sortMode == InventorySortMode.byRemaining) {
+    // 余量/消耗排序：扁平列表
+    if (state.sortMode == InventorySortMode.byRemaining || state.sortMode == InventorySortMode.byConsumption) {
       return _buildFlatList(state);
     }
 
@@ -285,6 +297,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         final item = items[index];
         return ColorCard(
           item: item,
+          showConsumption: state.sortMode == InventorySortMode.byConsumption,
           onTap: () => context.go('/inventory/detail/${item.colorId}'),
           onAdd: () => _showRestock(context, ref, item.colorId),
           onSubtract: () => _showConsume(context, ref, item.colorId),

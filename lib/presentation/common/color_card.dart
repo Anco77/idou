@@ -30,6 +30,7 @@ String _stockLabel(_StockLevel level) {
 
 class ColorCard extends StatelessWidget {
   final InventoryWithColor item;
+  final bool showConsumption;
   final VoidCallback? onAdd;
   final VoidCallback? onSubtract;
   final VoidCallback? onSetQty;
@@ -38,6 +39,7 @@ class ColorCard extends StatelessWidget {
   const ColorCard({
     super.key,
     required this.item,
+    this.showConsumption = false,
     this.onAdd,
     this.onSubtract,
     this.onSetQty,
@@ -47,9 +49,11 @@ class ColorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color.fromARGB(255, item.r, item.g, item.b);
-    final level = _stockLevel(item.currentQty);
-    final slColor = _stockColor(level);
-    final ratio = (item.currentQty / 1000).clamp(0.0, 1.0);
+
+    final displayQty = showConsumption ? item.totalConsumed : item.currentQty;
+    final unitText = showConsumption ? '消耗' : '颗';
+    final ratio = (displayQty / 1000).clamp(0.0, 1.0);
+    final barColor = showConsumption ? const Color(0xFF7E57C2) : _stockColor(_stockLevel(item.currentQty));
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -124,35 +128,45 @@ class ColorCard extends StatelessWidget {
                                       alignment: Alignment.centerLeft,
                                       child: FractionallySizedBox(
                                         widthFactor: ratio,
-                                        child: Container(color: slColor),
+                                        child: Container(color: barColor),
                                       ),
                                     ),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        _stockLabel(level),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: fontSizeLabel,
-                                          color: slColor,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.5,
+                                if (showConsumption)
+                                  Text(
+                                    '已消耗',
+                                    style: TextStyle(
+                                      fontSize: fontSizeLabel,
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  )
+                                else
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          _stockLabel(_stockLevel(item.currentQty)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: fontSizeLabel,
+                                            color: barColor,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    if (level == _StockLevel.critical) ...[
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.warning_amber_rounded,
-                                          color: Colors.amber, size: 16),
+                                      if (_stockLevel(item.currentQty) == _StockLevel.critical) ...[
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.warning_amber_rounded,
+                                            color: Colors.amber, size: 16),
+                                      ],
                                     ],
-                                  ],
-                                ),
+                                  ),
                                 const SizedBox(height: 6),
                                 FittedBox(
                                   fit: BoxFit.scaleDown,
@@ -161,7 +175,7 @@ class ColorCard extends StatelessWidget {
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        '${item.currentQty}',
+                                        '$displayQty',
                                         style: TextStyle(
                                           fontSize: fontSizeQty,
                                           fontWeight: FontWeight.bold,
@@ -175,7 +189,7 @@ class ColorCard extends StatelessWidget {
                                       Padding(
                                         padding: const EdgeInsets.only(bottom: 2),
                                         child: Text(
-                                          '颗',
+                                          unitText,
                                           style: TextStyle(
                                             fontSize: fontSizeUnit,
                                             color: Colors.white70,

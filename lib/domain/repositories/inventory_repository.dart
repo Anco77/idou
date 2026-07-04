@@ -26,6 +26,9 @@ abstract class InventoryRepository {
   /// 获取色号变更历史
   Future<List<InventoryLogItem>> getLogsForColor(int colorId, {int limit = 50});
 
+  /// 获取全局操作日志
+  Future<List<OperationLogItem>> getAllLogs({String? changeType, int limit = 200, int offset = 0});
+
   /// 获取所有低量色号
   Future<List<InventoryWithColor>> getLowStockColors({int threshold = 500});
 }

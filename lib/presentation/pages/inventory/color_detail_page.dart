@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../common/quantity_selector.dart';
 import 'package:idou/core/database/daos/inventory_dao.dart';
 import '../../providers/inventory_providers.dart';
@@ -195,6 +194,19 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+String _smartTime(DateTime dt) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final yesterday = today.subtract(const Duration(days: 1));
+  final date = DateTime(dt.year, dt.month, dt.day);
+  final hh = dt.hour.toString().padLeft(2, '0');
+  final mm = dt.minute.toString().padLeft(2, '0');
+  final time = '$hh:$mm';
+  if (date == today) return time;
+  if (date == yesterday) return '昨天 $time';
+  return '${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} $time';
+}
+
 class _LogRow extends StatelessWidget {
   final InventoryLogItem log;
   const _LogRow({required this.log});
@@ -245,7 +257,6 @@ class _LogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final df = DateFormat('MM-dd HH:mm');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -265,7 +276,7 @@ class _LogRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  df.format(log.createdAt),
+                  _smartTime(log.createdAt),
                   style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
               ],

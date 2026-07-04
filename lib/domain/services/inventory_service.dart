@@ -47,6 +47,11 @@ class InventoryService {
     return _repository.getLogsForColor(colorId, limit: limit);
   }
 
+  /// 获取全局操作日志
+  Future<List<OperationLogItem>> getAllLogs({String? changeType, int limit = 200, int offset = 0}) {
+    return _repository.getAllLogs(changeType: changeType, limit: limit, offset: offset);
+  }
+
   /// 获取低量色号
   Future<List<InventoryWithColor>> getLowStockColors({int threshold = 500}) {
     return _repository.getLowStockColors(threshold: threshold);

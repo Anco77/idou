@@ -89,6 +89,14 @@ class InventoryState {
             : b.colorId.compareTo(a.colorId));
         break;
       case InventorySortMode.byConsumption:
+        result.sort((a, b) {
+          final cmp = ascending
+              ? a.totalConsumed.compareTo(b.totalConsumed)
+              : b.totalConsumed.compareTo(a.totalConsumed);
+          if (cmp != 0) return cmp;
+          return a.colorId.compareTo(b.colorId);
+        });
+        break;
       case InventorySortMode.byRemaining:
         result.sort((a, b) {
           final cmp = ascending
@@ -205,4 +213,11 @@ class InventoryStateNotifier extends StateNotifier<InventoryState> {
 final colorLogsProvider = FutureProvider.autoDispose.family<List<InventoryLogItem>, int>((ref, colorId) {
   final service = ref.watch(inventoryServiceProvider);
   return service.getLogsForColor(colorId, limit: 50);
+});
+
+/// 全局操作日志（按时间倒序，可筛选类型）
+final operationLogsProvider =
+    FutureProvider.autoDispose.family<List<OperationLogItem>, String?>((ref, filterType) {
+  final service = ref.watch(inventoryServiceProvider);
+  return service.getAllLogs(changeType: filterType, limit: 500);
 });

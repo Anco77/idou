@@ -134,6 +134,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
+  Future<List<OperationLogItem>> getAllLogs({String? changeType, int limit = 200, int offset = 0}) {
+    return _dao.getAllLogs(changeType: changeType, limit: limit, offset: offset);
+  }
+
+  @override
   Future<List<InventoryLogItem>> getLogsForColor(int colorId, {int limit = 50}) {
     return _dao.getLogsForColor(colorId, limit: limit);
   }

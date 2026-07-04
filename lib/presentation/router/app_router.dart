@@ -5,6 +5,7 @@ import '../pages/home/home_page.dart';
 import '../pages/inventory/inventory_page.dart';
 import '../pages/inventory/color_detail_page.dart';
 import '../pages/inventory/bulk_inventory_page.dart';
+import '../pages/inventory/operation_history_page.dart';
 import '../pages/recognition/upload_page.dart';
 import '../pages/recognition/recognition_result_page.dart';
 import '../pages/patterns/patterns_page.dart';
@@ -43,6 +44,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'bulk',
                 builder: (context, state) => const BulkInventoryPage(),
+              ),
+              GoRoute(
+                path: 'history',
+                builder: (context, state) => const OperationHistoryPage(),
               ),
             ],
           ),

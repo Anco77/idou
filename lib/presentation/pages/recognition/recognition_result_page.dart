@@ -23,6 +23,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
   int _cropX = 0, _cropY = 0, _cropW = 0, _cropH = 0;
   int _gridCols = 52, _gridRows = 52;
   PatternRecognitionResult? _result;
+  PatternRecognitionResult? _rawResult;
+  double _mergeThreshold = 0;
   bool _isLoading = false;
   String? _error;
   bool _isDeducting = false;
@@ -60,7 +62,7 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
 
       final matcher = ColorMatcher(standards);
       final service = BeadPatternService(matcher);
-      final result = await service.process(
+      final raw = await service.process(
         imagePath: _imagePath!,
         cropX: _cropX, cropY: _cropY,
         cropW: _cropW, cropH: _cropH,
@@ -69,7 +71,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
 
       if (!mounted) return;
       setState(() {
-        _result = result;
+        _rawResult = raw;
+        _result = raw;
         _isLoading = false;
       });
     } catch (e) {
@@ -79,6 +82,27 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
         _isLoading = false;
       });
     }
+  }
+
+  void _applyMerge(double threshold) {
+    if (_rawResult == null) return;
+    setState(() {
+      _mergeThreshold = threshold;
+      if (threshold <= 0) {
+        _result = _rawResult;
+      } else {
+        final state = ref.read(inventoryStateProvider);
+        final standards = state.items.map((i) => StandardColor(
+          colorId: i.colorId,
+          colorName: i.colorName,
+          hexValue: i.hexValue,
+          r: i.r, g: i.g, b: i.b,
+        )).toList();
+        final matcher = ColorMatcher(standards);
+        final service = BeadPatternService(matcher);
+        _result = service.applyMerge(_rawResult!, threshold);
+      }
+    });
   }
 
   @override
@@ -161,6 +185,39 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
                       _StatItem('色号数', '$totalColors'),
                       _StatItem('总颗数', '$totalBeads'),
                       _StatItem('尺寸', '${result.gridCols}×${result.gridRows}'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Merge threshold slider
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Text('颜色合并', style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Slider(
+                          value: _mergeThreshold,
+                          min: 0,
+                          max: 30,
+                          divisions: 30,
+                          label: _mergeThreshold == 0
+                              ? '关闭'
+                              : 'ΔE ${_mergeThreshold.round()}',
+                          onChanged: _applyMerge,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          _mergeThreshold == 0 ? '关闭' : '${_mergeThreshold.round()}',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                      ),
                     ],
                   ),
                 ),

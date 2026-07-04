@@ -32,6 +32,7 @@ class BeadPatternService {
     required int cropH,
     required int gridCols,
     required int gridRows,
+    double mergeThreshold = 0,
   }) async {
     final bytes = await File(imagePath).readAsBytes();
     final image = img.decodeImage(bytes);
@@ -68,10 +69,40 @@ class BeadPatternService {
       }
     }
 
-    final filtered = Map<int, int>.fromEntries(
-      colorCounts.entries.where((e) => e.value > 2),
-    );
+    return _buildResult(imagePath, grid, gridCols, gridRows, colorCounts, mergeThreshold);
+  }
 
+  PatternRecognitionResult applyMerge(PatternRecognitionResult result, double threshold) {
+    if (threshold <= 0) return result;
+    final grid = result.grid.map((row) => row.toList()).toList();
+    final colorCounts = <int, int>{};
+    for (final row in grid) {
+      for (final cell in row) {
+        if (cell != null) {
+          colorCounts[cell.colorId] = (colorCounts[cell.colorId] ?? 0) + 1;
+        }
+      }
+    }
+    return _buildResult(result.imagePath, grid, result.gridCols, result.gridRows, colorCounts, threshold);
+  }
+
+  PatternRecognitionResult _buildResult(
+    String imagePath,
+    List<List<StandardColor?>> grid,
+    int gridCols,
+    int gridRows,
+    Map<int, int> colorCounts,
+    double mergeThreshold,
+  ) {
+    final Map<int, int> finalCounts;
+    if (mergeThreshold > 0) {
+      finalCounts = _colorMatcher.mergeSimilarColors(grid, threshold: mergeThreshold);
+    } else {
+      finalCounts = colorCounts;
+    }
+    final filtered = Map<int, int>.fromEntries(
+      finalCounts.entries.where((e) => e.value > 2),
+    );
     return PatternRecognitionResult(
       imagePath: imagePath,
       gridCols: gridCols,

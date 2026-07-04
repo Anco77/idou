@@ -1,6 +1,6 @@
 {
-  "latest": "1.1.3",
-  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.3/idou-android-v1.1.3.apk",
-  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.3/idou-windows-v1.1.3.exe",
-  "notes": "修复: getBytes()颜色通道顺序(R/B互换)，识别结果颜色正确"
+  "latest": "1.1.4",
+  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.4/idou-android-v1.1.4.apk",
+  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.4/idou-windows-v1.1.4.exe",
+  "notes": "新增: CIEDE2000感知色差匹配、颜色合并滑块(ΔE可调)，提高识别准确度"
 }

@@ -1,7 +1,7 @@
 import 'dart:typed_data';
+import 'package:delta_e/delta_e.dart';
 import 'package:flutter/material.dart';
 
-/// 标准色号数据
 class StandardColor {
   final int colorId;
   final String colorName;
@@ -9,20 +9,20 @@ class StandardColor {
   final int r;
   final int g;
   final int b;
+  final LabColor lab;
 
-  const StandardColor({
+  StandardColor({
     required this.colorId,
     required this.colorName,
     required this.hexValue,
     required this.r,
     required this.g,
     required this.b,
-  });
+  }) : lab = LabColor.fromRGB(r, g, b);
 
   Color get flutterColor => Color.fromARGB(255, r, g, b);
 }
 
-/// 颜色匹配结果
 class MatchResult {
   final StandardColor color;
   final double distance;
@@ -35,39 +35,27 @@ class MatchResult {
   });
 }
 
-/// 颜色匹配引擎 — RGB欧氏距离
 class ColorMatcher {
   final List<StandardColor> _standardColors;
 
   ColorMatcher(this._standardColors);
 
-  /// 将RGB值匹配到最近的标准色号
   MatchResult findNearest(int r, int g, int b) {
+    final pixelLab = LabColor.fromRGB(r, g, b);
     StandardColor? best;
     double minDistance = double.infinity;
 
     for (final color in _standardColors) {
-      final dr = r - color.r;
-      final dg = g - color.g;
-      final db = b - color.b;
-      // RGB欧氏距离（加权，人眼对绿色更敏感）
-      final distance = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11;
-
+      final distance = deltaE00(pixelLab, color.lab);
       if (distance < minDistance) {
         minDistance = distance;
         best = color;
       }
     }
 
-    return MatchResult(
-      color: best!,
-      distance: minDistance,
-    );
+    return MatchResult(color: best!, distance: minDistance);
   }
 
-  /// 对图像像素数据做颜色量化
-  /// [pixels] 为 RGBA 字节数组
-  /// 返回 { colorId: pixelCount } 的映射
   Map<int, int> quantizeImage(Uint8List pixels, int width, int height) {
     final Map<int, int> colorCounts = {};
 
@@ -81,7 +69,6 @@ class ColorMatcher {
         final b = pixels[idx + 2];
         final a = pixels[idx + 3];
 
-        // 忽略透明像素
         if (a < 128) continue;
 
         final match = findNearest(r, g, b);
@@ -92,15 +79,12 @@ class ColorMatcher {
     return colorCounts;
   }
 
-  /// 将像素点数换算为拼豆颗数
-  /// 假设每个像素对应一颗豆（1:1映射）
   static Map<int, int> pixelsToBeads(Map<int, int> pixelCounts) {
     return Map.fromEntries(
       pixelCounts.entries.map((e) => MapEntry(e.key, e.value)),
     );
   }
 
-  /// 计算网格平均颜色
   Color averageGridColor(Uint8List pixels, int width, int height,
       int gridX, int gridY, int gridW, int gridH) {
     int sumR = 0, sumG = 0, sumB = 0, count = 0;
@@ -123,11 +107,6 @@ class ColorMatcher {
     return Color.fromARGB(255, sumR ~/ count, sumG ~/ count, sumB ~/ count);
   }
 
-  /// Mode-pool dominant color matching for a grid cell.
-  /// For a list of [r, g, b] pixel values, individually matches each to the
-  /// nearest standard color. If the top vote exceeds [threshold] (default 30%),
-  /// returns that color. Otherwise falls back to the nearest standard color of
-  /// the average pixel color.
   StandardColor gridMatchDominant(List<List<int>> pixelRgbs, {double threshold = 0.3}) {
     final votes = <int, int>{};
     int total = 0;
@@ -151,13 +130,10 @@ class ColorMatcher {
       return _standardColors.firstWhere((c) => c.colorId == topEntry.key);
     }
 
-    // Fallback: average color → nearest standard
     final avg = findNearest(sumR ~/ total, sumG ~/ total, sumB ~/ total);
     return avg.color;
   }
 
-  /// 网格化图像并匹配色号
-  /// 返回 [row][col] 的 StandardColor 矩阵
   List<List<StandardColor>> gridMatch(
     Uint8List pixels, int width, int height, int gridSize
   ) {
@@ -177,6 +153,80 @@ class ColorMatcher {
       }
     }
 
+    return result;
+  }
+
+  Map<int, int> mergeSimilarColors(List<List<StandardColor?>> grid, {double threshold = 10.0}) {
+    if (threshold <= 0) {
+      final counts = <int, int>{};
+      for (final row in grid) {
+        for (final cell in row) {
+          if (cell != null) {
+            counts[cell.colorId] = (counts[cell.colorId] ?? 0) + 1;
+          }
+        }
+      }
+      return counts;
+    }
+
+    final freq = <int, int>{};
+    final colorMap = <int, StandardColor>{};
+    for (final row in grid) {
+      for (final cell in row) {
+        if (cell != null) {
+          freq[cell.colorId] = (freq[cell.colorId] ?? 0) + 1;
+          colorMap[cell.colorId] = cell;
+        }
+      }
+    }
+
+    final sorted = freq.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
+
+    for (int i = 0; i < sorted.length; i++) {
+      final targetId = sorted[i].key;
+      if (!freq.containsKey(targetId)) continue;
+      final targetLab = colorMap[targetId]?.lab;
+      if (targetLab == null) continue;
+
+      int? bestId;
+      double bestDist = threshold;
+      for (int j = sorted.length - 1; j > i; j--) {
+        final candidateId = sorted[j].key;
+        if (!freq.containsKey(candidateId)) continue;
+        final candidateLab = colorMap[candidateId]?.lab;
+        if (candidateLab == null) continue;
+
+        final dist = deltaE00(targetLab, candidateLab);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestId = candidateId;
+        }
+      }
+
+      if (bestId != null) {
+        int count = 0;
+        final mergedColor = colorMap[bestId]!;
+        for (int row = 0; row < grid.length; row++) {
+          for (int col = 0; col < grid[row].length; col++) {
+            if (grid[row][col]?.colorId == targetId) {
+              grid[row][col] = mergedColor;
+              count++;
+            }
+          }
+        }
+        freq[bestId] = (freq[bestId] ?? 0) + count;
+        freq.remove(targetId);
+      }
+    }
+
+    final result = <int, int>{};
+    for (final row in grid) {
+      for (final cell in row) {
+        if (cell != null) {
+          result[cell.colorId] = (result[cell.colorId] ?? 0) + 1;
+        }
+      }
+    }
     return result;
   }
 }

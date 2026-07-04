@@ -1,6 +1,6 @@
 {
-  "latest": "1.1.1",
-  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.1/idou-android-v1.1.1.apk",
-  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.1/idou-windows-v1.1.1.exe",
-  "notes": "改进: 裁剪框可拖动/缩放、图片可缩小、图纸中心添加上传入口"
+  "latest": "1.1.2",
+  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.2/idou-android-v1.1.2.apk",
+  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.2/idou-windows-v1.1.2.exe",
+  "notes": "修复: 裁剪框遮挡下半部分、图片无法缩小、色号格式改为Mard(A1/B10)"
 }

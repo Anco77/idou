@@ -252,7 +252,7 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
             border: Border.all(color: Colors.grey.shade300),
           ),
         ),
-        title: Text('#${colorId.toString().padLeft(3, '0')}'),
+        title: Text(item?.mardId ?? '#${colorId.toString().padLeft(3, '0')}'),
         subtitle: Text('需要 $needed 颗'),
         trailing: Text(
           sufficient
@@ -275,6 +275,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
       final inventoryService = ref.read(inventoryServiceProvider);
       final patternsNotifier = ref.read(patternsStateProvider.notifier);
 
+      final inventoryItems = ref.read(inventoryStateProvider).items;
+
       // Use batchDeduct for transactional deduction
       final deductResult = await inventoryService.batchDeduct(
         result.colorConsumptions,
@@ -284,27 +286,37 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
         if (!mounted) return;
         showDialog(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('库存不足'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('以下色号库存不足，已取消扣除操作：'),
-                const SizedBox(height: 8),
-                ...deductResult.insufficientColors.map((e) => Text(
-                  '#${e.colorId.toString().padLeft(3, '0')}: 需要 ${e.required} 颗，'
-                  '仅有 ${e.available} 颗',
-                )),
-              ],
-            ),
+          builder: (ctx) {
+            final mardIds = deductResult.insufficientColors.map((e) {
+              final item = inventoryItems.where((i) => i.colorId == e.colorId).firstOrNull;
+              return item?.mardId ?? '#${e.colorId.toString().padLeft(3, '0')}';
+            }).toList();
+            return AlertDialog(
+              title: const Text('库存不足'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('以下色号库存不足，已取消扣除操作：'),
+                  const SizedBox(height: 8),
+                  ...deductResult.insufficientColors.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final e = entry.value;
+                    final mardId = mardIds[i];
+                    return Text(
+                      '$mardId: 需要 ${e.required} 颗，仅有 ${e.available} 颗',
+                    );
+                  }),
+                ],
+              ),
             actions: [
               FilledButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('知道了'),
               ),
             ],
-          ),
+          );
+          },
         );
         setState(() => _isDeducting = false);
         return;

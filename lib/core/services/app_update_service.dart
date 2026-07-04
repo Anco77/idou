@@ -58,7 +58,7 @@ class AppUpdateService {
   static const _githubOwner = 'Anco77';
   static const _githubRepo = 'idou';
   static const _cacheFileName = 'update_cache.json';
-  static const _mirrorPrefix = 'https://ghproxy.com/';
+  static const _mirrorPrefix = 'https://v4.gh-proxy.org/';
 
   String? _currentVersion;
 

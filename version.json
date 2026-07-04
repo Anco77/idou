@@ -1,6 +1,6 @@
 {
-  "latest": "1.1.0",
-  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.0/idou-android-v1.1.0.apk",
-  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.0/idou-windows-v1.1.0.exe",
-  "notes": "新增: 图纸识别功能改造 — 交互式裁剪(类Instagram)、Mode-Pool网格匹配算法、自定义网格尺寸"
+  "latest": "1.1.1",
+  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.1/idou-android-v1.1.1.apk",
+  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.1/idou-windows-v1.1.1.exe",
+  "notes": "改进: 裁剪框可拖动/缩放、图片可缩小、图纸中心添加上传入口"
 }

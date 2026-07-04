@@ -15,7 +15,8 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
   String? _imagePath;
   Size? _imageSize;
   final TransformationController _transformController = TransformationController();
-  final GlobalKey _ivKey = GlobalKey();
+
+  double _cropX = 0, _cropY = 0, _cropW = 0, _cropH = 0;
 
   int _gridCols = 52;
   int _gridRows = 52;
@@ -41,6 +42,14 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
     }
   }
 
+  void _initCropRect(double maxW, double maxH) {
+    if (_cropW > 0 && _cropH > 0) return;
+    _cropW = maxW * 0.85;
+    _cropH = maxH * 0.7;
+    _cropX = (maxW - _cropW) / 2;
+    _cropY = (maxH - _cropH) / 2;
+  }
+
   @override
   void dispose() {
     _transformController.dispose();
@@ -50,26 +59,16 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
   }
 
   Rect _computeCropRectInImage(Size ivSize) {
-    final cropW = ivSize.width * 0.85;
-    final cropH = ivSize.height * 0.7;
-    final cropLeft = (ivSize.width - cropW) / 2;
-    final cropTop = (ivSize.height - cropH) / 2;
-    final cropRectScreen = Rect.fromLTWH(cropLeft, cropTop, cropW, cropH);
-
+    final cropRectScreen = Rect.fromLTWH(_cropX, _cropY, _cropW, _cropH);
     final matrix = _transformController.value;
     final inverse = Matrix4.inverted(matrix);
-
     final tl = MatrixUtils.transformPoint(inverse, cropRectScreen.topLeft);
     final br = MatrixUtils.transformPoint(inverse, cropRectScreen.bottomRight);
     final cropInChild = Rect.fromLTRB(tl.dx, tl.dy, br.dx, br.dy);
-
-    // Image fills the SizedBox 1:1 (BoxFit.fill), so child coords = image coords
-    // But we need to scale from display size to pixel size
     final imgW = _imageSize!.width;
     final imgH = _imageSize!.height;
     final displayW = _displaySize().width;
     final displayH = _displaySize().height;
-
     return Rect.fromLTWH(
       (cropInChild.left / displayW * imgW).clamp(0, imgW),
       (cropInChild.top / displayH * imgH).clamp(0, imgH),
@@ -86,12 +85,19 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
     return Size(_imageSize!.width * scale, _imageSize!.height * scale);
   }
 
+  void _clampCrop(double maxW, double maxH) {
+    _cropX = _cropX.clamp(0, maxW - _cropW);
+    _cropY = _cropY.clamp(0, maxH - _cropH);
+    _cropW = _cropW.clamp(60, maxW);
+    _cropH = _cropH.clamp(60, maxH);
+  }
+
   void _handleNext() {
-    final ivRenderBox = _ivKey.currentContext?.findRenderObject() as RenderBox?;
-    if (ivRenderBox == null || _imagePath == null) return;
-
-    final cropRect = _computeCropRectInImage(ivRenderBox.size);
-
+    if (_imagePath == null) return;
+    // Use a sensible default viewport size for coordinate mapping
+    final ivSize = Size(MediaQuery.of(context).size.width,
+        MediaQuery.of(context).size.height - 300);
+    final cropRect = _computeCropRectInImage(ivSize);
     context.push('/recognition/result', extra: {
       'imagePath': _imagePath,
       'cropX': cropRect.left.round(),
@@ -117,16 +123,21 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (context, constraints) {
+                final maxW = constraints.maxWidth;
+                final maxH = constraints.maxHeight;
+                _initCropRect(maxW, maxH);
+
                 final displaySize = _displaySize();
                 return Column(
                   children: [
                     Expanded(
                       child: Stack(
-                        key: _ivKey,
                         children: [
                           InteractiveViewer(
                             transformationController: _transformController,
                             constrained: false,
+                            minScale: 0.1,
+                            maxScale: 4.0,
                             child: SizedBox(
                               width: displaySize.width,
                               height: displaySize.height,
@@ -136,23 +147,9 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
                               ),
                             ),
                           ),
-                          // Semi-transparent overlay with crop frame cutout
-                          ..._buildOverlay(constraints),
-                          // Crop frame border
-                          Center(
-                            child: SizedBox(
-                              width: constraints.maxWidth * 0.85,
-                              height: constraints.maxHeight * 0.7,
-                              child: IgnorePointer(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.white, width: 2),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                          ..._buildOverlay(maxW, maxH),
+                          _buildFrame(),
+                          ..._buildCornerHandles(maxW, maxH),
                         ],
                       ),
                     ),
@@ -164,24 +161,89 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
     );
   }
 
-  List<Widget> _buildOverlay(BoxConstraints constraints) {
-    final cropW = constraints.maxWidth * 0.85;
-    final cropH = constraints.maxHeight * 0.7;
-    final cropLeft = (constraints.maxWidth - cropW) / 2;
-    final cropTop = (constraints.maxHeight - cropH) / 2;
+  List<Widget> _buildOverlay(double maxW, double maxH) {
     return [
-      // Top
-      Positioned(top: 0, left: 0, right: 0, height: cropTop,
-        child: Container(color: Colors.black54)),
-      // Bottom
-      Positioned(top: cropTop + cropH, left: 0, right: 0, bottom: 0,
-        child: Container(color: Colors.black54)),
-      // Left
-      Positioned(top: cropTop, left: 0, width: cropLeft, height: cropH,
-        child: Container(color: Colors.black54)),
-      // Right
-      Positioned(top: cropTop, left: cropLeft + cropW, right: 0, height: cropH,
-        child: Container(color: Colors.black54)),
+      Positioned(top: 0, left: 0, right: 0, height: _cropY,
+        child: GestureDetector(
+          onPanUpdate: (d) => setState(() {
+            _cropX += d.delta.dx;
+            _cropY += d.delta.dy;
+            _clampCrop(maxW, maxH);
+          }),
+          child: Container(color: Colors.black54),
+        ),
+      ),
+      Positioned(top: _cropY + _cropH, left: 0, right: 0, bottom: 0,
+        child: GestureDetector(
+          onPanUpdate: (d) => setState(() {
+            _cropX += d.delta.dx;
+            _cropY += d.delta.dy;
+            _clampCrop(maxW, maxH);
+          }),
+          child: Container(color: Colors.black54),
+        ),
+      ),
+      Positioned(top: _cropY, left: 0, width: _cropX, height: _cropH,
+        child: GestureDetector(
+          onPanUpdate: (d) => setState(() {
+            _cropX += d.delta.dx;
+            _cropY += d.delta.dy;
+            _clampCrop(maxW, maxH);
+          }),
+          child: Container(color: Colors.black54),
+        ),
+      ),
+      Positioned(top: _cropY, left: _cropX + _cropW, right: 0, height: _cropH,
+        child: GestureDetector(
+          onPanUpdate: (d) => setState(() {
+            _cropX += d.delta.dx;
+            _cropY += d.delta.dy;
+            _clampCrop(maxW, maxH);
+          }),
+          child: Container(color: Colors.black54),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildFrame() {
+    return Positioned(
+      top: _cropY, left: _cropX,
+      width: _cropW, height: _cropH,
+      child: IgnorePointer(
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.white, width: 2),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildCornerHandles(double maxW, double maxH) {
+    const s = 20.0;
+    return [
+      Positioned(top: _cropY - s / 2, left: _cropX - s / 2,
+        child: _ResizeHandle(onPan: (dx, dy) {
+          setState(() { _cropX += dx; _cropY += dy; _cropW -= dx; _cropH -= dy; _clampCrop(maxW, maxH); });
+        }),
+      ),
+      Positioned(top: _cropY - s / 2, left: _cropX + _cropW - s / 2,
+        child: _ResizeHandle(onPan: (dx, dy) {
+          setState(() { _cropY += dy; _cropW += dx; _cropH -= dy; _clampCrop(maxW, maxH); });
+        }),
+      ),
+      Positioned(top: _cropY + _cropH - s / 2, left: _cropX - s / 2,
+        child: _ResizeHandle(onPan: (dx, dy) {
+          setState(() { _cropX += dx; _cropW -= dx; _cropH += dy; _clampCrop(maxW, maxH); });
+        }),
+      ),
+      Positioned(top: _cropY + _cropH - s / 2, left: _cropX + _cropW - s / 2,
+        child: _ResizeHandle(onPan: (dx, dy) {
+          setState(() { _cropW += dx; _cropH += dy; _clampCrop(maxW, maxH); });
+        }),
+      ),
     ];
   }
 
@@ -267,6 +329,27 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ResizeHandle extends StatelessWidget {
+  final void Function(double dx, double dy) onPan;
+  const _ResizeHandle({required this.onPan});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onPanUpdate: (d) => onPan(d.delta.dx, d.delta.dy),
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey.shade400, width: 2),
+        ),
       ),
     );
   }

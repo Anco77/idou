@@ -15,6 +15,17 @@ class PatternsPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('图纸中心'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_upload_outlined),
+            tooltip: '上传图纸',
+            onPressed: () => context.push('/recognition/upload'),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/recognition/upload'),
+        child: const Icon(Icons.add),
       ),
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -62,11 +62,18 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
 
       final matcher = ColorMatcher(standards);
       final service = BeadPatternService(matcher);
-      final raw = await service.process(
+      final mardIdToColorId = <String, int>{};
+      for (final item in state.items) {
+        if (item.mardId.isNotEmpty) {
+          mardIdToColorId[item.mardId.toUpperCase()] = item.colorId;
+        }
+      }
+      final raw = await service.processWithOcr(
         imagePath: _imagePath!,
         cropX: _cropX, cropY: _cropY,
         cropW: _cropW, cropH: _cropH,
         gridCols: _gridCols, gridRows: _gridRows,
+        mardIdToColorId: mardIdToColorId,
       );
 
       if (!mounted) return;

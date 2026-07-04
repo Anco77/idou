@@ -42,7 +42,12 @@ class _CropPageForRecognitionState extends State<CropPageForRecognition> {
       final screenW = MediaQuery.of(context).size.width;
       final screenH = MediaQuery.of(context).size.height - kToolbarHeight - kBottomNavigationBarHeight - 200;
       final scale = min(screenW / imgSize.width, screenH / imgSize.height);
-      _transformController.value = Matrix4.diagonal3Values(scale, scale, 1);
+      final cx = imgSize.width / 2;
+      final cy = imgSize.height / 2;
+      final tx = screenW / 2 - cx * scale;
+      final ty = screenH / 2 - cy * scale;
+      _transformController.value = Matrix4.diagonal3Values(scale, scale, 1)
+        ..setTranslationRaw(tx, ty, 0);
       if (mounted) {
         setState(() => _imageSize = imgSize);
       }

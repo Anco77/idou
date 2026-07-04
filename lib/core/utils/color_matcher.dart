@@ -64,6 +64,13 @@ class ColorMatcher {
 
   ColorMatcher(this._standardColors);
 
+  StandardColor? getStandardById(int colorId) {
+    for (final c in _standardColors) {
+      if (c.colorId == colorId) return c;
+    }
+    return null;
+  }
+
   MatchResult findNearest(int r, int g, int b) {
     final key = (r << 16) | (g << 8) | b;
     final pixelLab = _labCache.putIfAbsent(key, () => LabColor.fromRGB(r, g, b));

@@ -1,7 +1,7 @@
 name: idou
 description: 智能拼豆库存管理与AI图纸生成工具
 publish_to: 'none'
-version: 1.1.5+1
+version: 1.1.6+1
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -43,6 +43,7 @@ dependencies:
   open_filex: ^4.5.0
   connectivity_plus: ^6.0.0
   delta_e: ^0.2.1
+  google_mlkit_text_recognition: ^0.15.1
 
 dev_dependencies:
   flutter_test:

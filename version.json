@@ -1,6 +1,5 @@
 {
-  "latest": "1.1.5",
-  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.5/idou-android-v1.1.5.apk",
-  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.1.5/idou-windows-v1.1.5.exe",
-  "notes": "优化: CIEDE2000两步预筛性能(卡死修复)、裁剪页图片可缩小/可自由拖动"
+  "latest": "1.1.6",
+  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.1.6/idou-android-v1.1.6.apk",
+  "notes": "新增: ML Kit OCR识别色号标识(A1/B10)，未识别降级颜色匹配"
 }

@@ -1,7 +1,8 @@
 import 'dart:io';
-import 'dart:math';
-import 'package:flutter/services.dart';
+import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
+import '../utils/grid_detector.dart';
 
 class MardIdResult {
   final int col;
@@ -11,8 +12,6 @@ class MardIdResult {
 }
 
 class OcrService {
-  static const _channel = MethodChannel('com.example.idou/ocr');
-
   Future<List<MardIdResult>> recognizeMardIds(
     String imagePath,
     int cropX,
@@ -27,60 +26,81 @@ class OcrService {
       final image = img.decodeImage(fileBytes);
       if (image == null) return [];
 
-      const maxDim = 2048;
-      const maxUs = 2;
-      final us = [
-        maxUs,
-        (maxDim / image.width).floor(),
-        (maxDim / image.height).floor(),
-      ].reduce(min).clamp(1, maxUs);
+      GridDetectionResult? detected;
 
-      final upsampled = img.copyResize(
+      if (gridCols <= 0 && gridRows <= 0) {
+        detected = GridDetector.detect(image);
+        if (detected == null) return [];
+      }
+
+      final actualCropX = detected?.cropX ?? cropX;
+      final actualCropY = detected?.cropY ?? cropY;
+      final actualCropW = detected?.cropW ?? cropW;
+      final actualCropH = detected?.cropH ?? cropH;
+      final actualCols = detected?.gridCols ?? gridCols;
+      final actualRows = detected?.gridRows ?? gridRows;
+
+      final cropped = img.copyCrop(
         image,
-        width: image.width * us,
-        height: image.height * us,
+        x: actualCropX,
+        y: actualCropY,
+        width: actualCropW,
+        height: actualCropH,
+      );
+
+      const us = 2;
+      final upsampled = img.copyResize(
+        cropped,
+        width: cropped.width * us,
+        height: cropped.height * us,
         interpolation: img.Interpolation.nearest,
       );
 
-      final rgba = upsampled.getBytes(order: img.ChannelOrder.rgba);
-      final blocks = await _channel.invokeMethod<List<dynamic>>(
-        'recognizeText',
-        {
-          'bytes': rgba,
-          'width': upsampled.width,
-          'height': upsampled.height,
-        },
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File(
+        '${tempDir.path}/ocr_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await tempFile.writeAsBytes(img.encodePng(upsampled));
+
+      final hocr = await FlutterTesseractOcr.extractHocr(
+        tempFile.path,
+        language: 'eng',
+        args: {'psm': '6'},
       );
 
-      if (blocks == null) return [];
+      try {
+        await tempFile.delete();
+      } catch (_) {}
 
-      final cellW = cropW / gridCols;
-      final cellH = cropH / gridRows;
+      final hocrRegex = RegExp(
+        r"span class='ocr_word'.*?bbox (\d+) (\d+) (\d+) (\d+).*?>(.*?)<",
+        dotAll: true,
+      );
+
+      final cellW = actualCropW / actualCols;
+      final cellH = actualCropH / actualRows;
       final textRegex = RegExp(r'^([A-M])(\d+)$');
       final results = <MardIdResult>[];
       final seenCells = <int>{};
 
-      for (final block in blocks) {
-        final map = block as Map<dynamic, dynamic>;
-        final left = map['left'] as double;
-        final right = map['right'] as double;
-        final top = map['top'] as double;
-        final bottom = map['bottom'] as double;
-        final cx = (left + right) / 2 / us;
-        final cy = (top + bottom) / 2 / us;
-        if (cx < cropX || cx >= cropX + cropW) continue;
-        if (cy < cropY || cy >= cropY + cropH) continue;
+      for (final m in hocrRegex.allMatches(hocr)) {
+        final x1 = int.parse(m.group(1)!);
+        final y1 = int.parse(m.group(2)!);
+        final x2 = int.parse(m.group(3)!);
+        final y2 = int.parse(m.group(4)!);
+        final rawText = m.group(5)!.trim();
 
-        final relX = cx - cropX;
-        final relY = cy - cropY;
-        final col = (relX / cellW).round();
-        final row = (relY / cellH).round();
-        if (col < 0 || col >= gridCols || row < 0 || row >= gridRows) continue;
+        final cx = ((x1 + x2) / 2) / us;
+        final cy = ((y1 + y2) / 2) / us;
 
-        final cellKey = row * gridCols + col;
+        final col = (cx / cellW).round();
+        final row = (cy / cellH).round();
+        if (col < 0 || col >= actualCols || row < 0 || row >= actualRows) continue;
+
+        final cellKey = row * actualCols + col;
         if (seenCells.contains(cellKey)) continue;
 
-        var text = (map['text'] as String).trim().toUpperCase();
+        var text = rawText.toUpperCase();
         text = text
             .replaceAll('O', '0')
             .replaceAll('I', '1')
@@ -98,6 +118,17 @@ class OcrService {
       return results;
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<GridDetectionResult?> detectGrid(String imagePath) async {
+    try {
+      final bytes = await File(imagePath).readAsBytes();
+      final image = img.decodeImage(bytes);
+      if (image == null) return null;
+      return GridDetector.detect(image);
+    } catch (_) {
+      return null;
     }
   }
 }

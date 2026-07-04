@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/services/ocr_service.dart';
 
 class UploadPage extends ConsumerWidget {
   const UploadPage({super.key});
@@ -60,7 +61,24 @@ class UploadPage extends ConsumerWidget {
     final image = await picker.pickImage(source: source, maxWidth: 1920);
     if (image == null) return;
 
-    // 跳转到裁剪页（传递图片路径）
-    context.push('/recognition/crop', extra: image.path);
+    // 自动检测网格
+    final service = OcrService();
+    final grid = await service.detectGrid(image.path);
+
+    if (grid != null) {
+      // 检测到网格，直接跳转到结果页
+      context.push('/recognition/result', extra: {
+        'imagePath': image.path,
+        'cropX': grid.cropX,
+        'cropY': grid.cropY,
+        'cropW': grid.cropW,
+        'cropH': grid.cropH,
+        'gridCols': grid.gridCols,
+        'gridRows': grid.gridRows,
+      });
+    } else {
+      // 未检测到网格，跳转到手动裁剪页
+      context.push('/recognition/crop', extra: image.path);
+    }
   }
 }

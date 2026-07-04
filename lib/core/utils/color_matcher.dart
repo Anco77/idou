@@ -123,6 +123,39 @@ class ColorMatcher {
     return Color.fromARGB(255, sumR ~/ count, sumG ~/ count, sumB ~/ count);
   }
 
+  /// Mode-pool dominant color matching for a grid cell.
+  /// For a list of [r, g, b] pixel values, individually matches each to the
+  /// nearest standard color. If the top vote exceeds [threshold] (default 30%),
+  /// returns that color. Otherwise falls back to the nearest standard color of
+  /// the average pixel color.
+  StandardColor gridMatchDominant(List<List<int>> pixelRgbs, {double threshold = 0.3}) {
+    final votes = <int, int>{};
+    int total = 0;
+    int sumR = 0, sumG = 0, sumB = 0;
+
+    for (final rgb in pixelRgbs) {
+      if (rgb.length < 3) continue;
+      final r = rgb[0], g = rgb[1], b = rgb[2];
+      final match = findNearest(r, g, b);
+      votes[match.color.colorId] = (votes[match.color.colorId] ?? 0) + 1;
+      total++;
+      sumR += r; sumG += g; sumB += b;
+    }
+
+    if (total == 0) return _standardColors.first;
+
+    final topEntry = votes.entries.reduce((a, b) => a.value > b.value ? a : b);
+    final topPct = topEntry.value / total;
+
+    if (topPct >= threshold) {
+      return _standardColors.firstWhere((c) => c.colorId == topEntry.key);
+    }
+
+    // Fallback: average color → nearest standard
+    final avg = findNearest(sumR ~/ total, sumG ~/ total, sumB ~/ total);
+    return avg.color;
+  }
+
   /// 网格化图像并匹配色号
   /// 返回 [row][col] 的 StandardColor 矩阵
   List<List<StandardColor>> gridMatch(

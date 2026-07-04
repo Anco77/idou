@@ -148,75 +148,27 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             onTap: () => notifier.setSortMode(InventorySortMode.byConsumption),
           ),
           const Spacer(),
-          SizedBox(
-            height: 32,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => _showRestockDialog(context, ref),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    height: 32,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add_shopping_cart, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text('补货', style: TextStyle(fontSize: 12, color: AppColors.primary)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => context.go('/inventory/bulk'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    height: 32,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.playlist_add, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text('批量', style: TextStyle(fontSize: 12, color: AppColors.primary)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => context.go('/inventory/history'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    height: 32,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.history, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text('历史', style: TextStyle(fontSize: 12, color: AppColors.primary)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _CircleActionButton(
+                icon: Icons.add_shopping_cart,
+                tooltip: '补货',
+                onTap: () => _showRestockDialog(context, ref),
+              ),
+              const SizedBox(width: 4),
+              _CircleActionButton(
+                icon: Icons.playlist_add,
+                tooltip: '批量操作',
+                onTap: () => context.go('/inventory/bulk'),
+              ),
+              const SizedBox(width: 4),
+              _CircleActionButton(
+                icon: Icons.history,
+                tooltip: '操作历史',
+                onTap: () => context.go('/inventory/history'),
+              ),
+            ],
           ),
         ],
       ),
@@ -603,6 +555,36 @@ class _SeriesSection extends StatelessWidget {
           ),
         const Divider(height: 1, indent: 12, endIndent: 12),
       ],
+    );
+  }
+}
+
+class _CircleActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _CircleActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        icon: Icon(icon, size: 20),
+        tooltip: tooltip,
+        onPressed: onTap,
+        style: IconButton.styleFrom(
+          side: BorderSide(color: Colors.grey.shade300),
+          padding: EdgeInsets.zero,
+          shape: const CircleBorder(),
+        ),
+      ),
     );
   }
 }

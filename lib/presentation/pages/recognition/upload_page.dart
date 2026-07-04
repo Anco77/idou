@@ -60,7 +60,7 @@ class UploadPage extends ConsumerWidget {
     final image = await picker.pickImage(source: source, maxWidth: 1920);
     if (image == null) return;
 
-    // 跳转到识别结果页（传递图片路径）
-    context.push('/recognition/result', extra: image.path);
+    // 跳转到裁剪页（传递图片路径）
+    context.push('/recognition/crop', extra: image.path);
   }
 }

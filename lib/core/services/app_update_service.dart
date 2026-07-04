@@ -64,18 +64,28 @@ class AppUpdateService {
   }
 
   String get _targetExtension => Platform.isAndroid ? '.apk' : '.exe';
+  String get _platformName => Platform.isAndroid ? 'android' : 'windows';
 
   Future<UpdateCheckResult> checkForUpdate() async {
     await getCurrentVersion();
 
-    // Try API
+    // Try GitHub API
     final result = await _checkApi();
     if (result case UpdateAvailable(:final info)) {
       await _cacheUpdateInfo(info);
       return result;
     }
 
-    // API failed — try cache fallback
+    // Try fallback: raw.githubusercontent.com version.json
+    if (result is CheckFailed) {
+      final fallback = await _checkFallback();
+      if (fallback case UpdateAvailable(:final info)) {
+        await _cacheUpdateInfo(info);
+        return fallback;
+      }
+    }
+
+    // All remotes failed — try local cache
     final cached = await _readCachedUpdateInfo();
     if (cached != null && _isNewerVersion(cached.version)) {
       return UpdateAvailable(cached);
@@ -90,14 +100,11 @@ class AppUpdateService {
         'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest',
       );
       final response = await http
-          .get(
-            url,
-            headers: {'Accept': 'application/vnd.github.v3+json'},
-          )
+          .get(url, headers: {'Accept': 'application/vnd.github.v3+json'})
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 403) {
-        return const CheckFailed('API 访问受限，请稍后重试');
+        return const CheckFailed('API 访问受限');
       }
       if (response.statusCode != 200) {
         return CheckFailed('服务器响应异常 (${response.statusCode})');
@@ -113,9 +120,7 @@ class AppUpdateService {
             orElse: () => <String, dynamic>{},
           );
 
-      if (matchedAsset.isEmpty) {
-        return const CheckFailed('未找到安装包');
-      }
+      if (matchedAsset.isEmpty) return const CheckFailed('未找到安装包');
 
       final remoteInfo = UpdateInfo(
         version: version,
@@ -123,25 +128,20 @@ class AppUpdateService {
         releaseNotes: data['body'] as String? ?? '',
       );
 
-      if (_isNewerVersion(remoteInfo.version)) {
-        return UpdateAvailable(remoteInfo);
-      }
+      if (_isNewerVersion(remoteInfo.version)) return UpdateAvailable(remoteInfo);
       return NoUpdate(remoteInfo.version);
-    } catch (e) {
-      // Retry once on network error
+    } catch (_) {
+      // Retry once
       try {
         final url = Uri.parse(
           'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest',
         );
         final response = await http
-            .get(
-              url,
-              headers: {'Accept': 'application/vnd.github.v3+json'},
-            )
+            .get(url, headers: {'Accept': 'application/vnd.github.v3+json'})
             .timeout(const Duration(seconds: 15));
 
         if (response.statusCode != 200) {
-          return const CheckFailed('网络连接失败，请检查网络设置');
+          return const CheckFailed('网络连接失败');
         }
 
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -154,9 +154,7 @@ class AppUpdateService {
               orElse: () => <String, dynamic>{},
             );
 
-        if (matchedAsset.isEmpty) {
-          return const CheckFailed('未找到安装包');
-        }
+        if (matchedAsset.isEmpty) return const CheckFailed('未找到安装包');
 
         final remoteInfo = UpdateInfo(
           version: version,
@@ -164,13 +162,46 @@ class AppUpdateService {
           releaseNotes: data['body'] as String? ?? '',
         );
 
-        if (_isNewerVersion(remoteInfo.version)) {
-          return UpdateAvailable(remoteInfo);
-        }
+        if (_isNewerVersion(remoteInfo.version)) return UpdateAvailable(remoteInfo);
         return NoUpdate(remoteInfo.version);
       } catch (_) {
-        return const CheckFailed('网络连接失败，请检查网络设置');
+        return const CheckFailed('网络连接失败');
       }
+    }
+  }
+
+  Future<UpdateCheckResult> _checkFallback() async {
+    try {
+      final url = Uri.parse(
+        'https://raw.githubusercontent.com/$_githubOwner/$_githubRepo/main/version.json',
+      );
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) {
+        return const CheckFailed('网络连接失败');
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final version = data['latest'] as String? ?? '';
+
+      final apkUrl = data['apk_url'] as String? ?? '';
+      final exeUrl = data['exe_url'] as String? ?? '';
+      final downloadUrl = Platform.isAndroid ? apkUrl : exeUrl;
+
+      if (version.isEmpty || downloadUrl.isEmpty) {
+        return const CheckFailed('更新信息不完整');
+      }
+
+      final remoteInfo = UpdateInfo(
+        version: version,
+        url: downloadUrl,
+        releaseNotes: data['notes'] as String? ?? '',
+      );
+
+      if (_isNewerVersion(remoteInfo.version)) return UpdateAvailable(remoteInfo);
+      return NoUpdate(remoteInfo.version);
+    } catch (_) {
+      return const CheckFailed('网络连接失败');
     }
   }
 
@@ -179,9 +210,7 @@ class AppUpdateService {
       final dir = await getApplicationDocumentsDirectory();
       final file = File(p.join(dir.path, _cacheFileName));
       await file.writeAsString(jsonEncode(info.toJson()));
-    } catch (_) {
-      // cache write failure is non-critical
-    }
+    } catch (_) {}
   }
 
   Future<UpdateInfo?> _readCachedUpdateInfo() async {
@@ -213,15 +242,12 @@ class AppUpdateService {
   }
 
   Future<String?> downloadUpdate(void Function(double) onProgress) async {
-    // Get the cached UpdateInfo first
     final cached = await _readCachedUpdateInfo();
     if (cached == null) return null;
 
     try {
       final dir = await getTemporaryDirectory();
-      final ext = Platform.isAndroid ? '.apk' : '.exe';
-      final platform = Platform.isAndroid ? 'android' : 'windows';
-      final fileName = 'idou-$platform-v${cached.version}$ext';
+      final fileName = 'idou-$_platformName-v${cached.version}$_targetExtension';
       final filePath = p.join(dir.path, fileName);
       final file = File(filePath);
 
@@ -255,10 +281,8 @@ class AppUpdateService {
       if (Platform.isAndroid) {
         final result = await OpenFilex.open(installerPath);
         return result.type == ResultType.done;
-      } else {
-        await Process.run(installerPath, ['/S']);
-        exit(0);
       }
+      return false;
     } catch (_) {
       return false;
     }

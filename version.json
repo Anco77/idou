@@ -1,0 +1,6 @@
+{
+  "latest": "1.0.1",
+  "apk_url": "https://github.com/Anco77/idou/releases/download/v1.0.1/idou-android-v1.0.1.apk",
+  "exe_url": "https://github.com/Anco77/idou/releases/download/v1.0.1/idou-windows-v1.0.1.exe",
+  "notes": "新增功能：操作历史页面、消耗量排序、色号色标\n修复：更新检查增加重试和备用检测源"
+}

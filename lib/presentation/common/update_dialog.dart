@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/app_update_service.dart';
 import '../providers/update_providers.dart';
 
@@ -18,6 +20,8 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
   String? _error;
   String? _installerPath;
 
+  bool get _isWindows => !Platform.isAndroid;
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -28,6 +32,39 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
   }
 
   Widget _buildContent() {
+    // Windows: show manual download message
+    if (_isWindows) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('版本 ${widget.updateInfo.version} 可用'),
+          const SizedBox(height: 8),
+          Text(widget.updateInfo.releaseNotes),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Windows 版本请前往 GitHub Releases 页面手动下载安装',
+                    style: TextStyle(fontSize: 13, color: Colors.blue),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     if (_error != null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -87,6 +124,26 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
   }
 
   List<Widget> _buildActions() {
+    // Windows: only show guide button
+    if (_isWindows) {
+      return [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+        FilledButton.icon(
+          icon: const Icon(Icons.open_in_browser, size: 18),
+          label: const Text('前往下载'),
+          onPressed: () async {
+            final url = Uri.parse(
+              'https://github.com/Anco77/idou/releases/tag/v${widget.updateInfo.version}',
+            );
+            if (await canLaunchUrl(url)) {
+              await launchUrl(url, mode: LaunchMode.externalApplication);
+            }
+            Navigator.pop(context);
+          },
+        ),
+      ];
+    }
+
     if (_error != null) {
       return [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),

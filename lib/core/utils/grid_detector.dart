@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:image/image.dart' as img;
 
 class GridDetectionResult {
@@ -16,11 +17,29 @@ class GridDetectionResult {
 
 class GridDetector {
   static GridDetectionResult? detect(img.Image image) {
-    const brightnessThreshold = 180;
-    const whiteRatio = 0.85;
-    const minGridLines = 10;
-    const spacingTolerance = 0.10;
+    const settings = [
+      (sampleStep: 1, colorThreshold: 40, whiteRatio: 0.70, mergeDist: 3, spacingTolerance: 0.20, minLines: 10),
+      (sampleStep: 2, colorThreshold: 60, whiteRatio: 0.50, mergeDist: 5, spacingTolerance: 0.30, minLines: 6),
+    ];
 
+    for (final s in settings) {
+      final result = _detectWithParams(image, s);
+      if (result != null) return result;
+    }
+    return null;
+  }
+
+  static GridDetectionResult? _detectWithParams(
+    img.Image image,
+    ({
+      int sampleStep,
+      int colorThreshold,
+      double whiteRatio,
+      int mergeDist,
+      double spacingTolerance,
+      int minLines,
+    }) params,
+  ) {
     final w = image.width;
     final h = image.height;
 
@@ -30,18 +49,34 @@ class GridDetector {
       final otherLen = axis == 0 ? h : w;
 
       for (int i = 0; i < otherLen; i++) {
-        int whiteCount = 0;
-        for (int j = 0; j < len; j++) {
-          final px = axis == 0
-              ? image.getPixel(j, i)
-              : image.getPixel(i, j);
-          if (px.r.toInt() > brightnessThreshold &&
-              px.g.toInt() > brightnessThreshold &&
-              px.b.toInt() > brightnessThreshold) {
-            whiteCount++;
-          }
+        final samples = <int>[];
+        for (int j = 0; j < len; j += params.sampleStep) {
+          final px = axis == 0 ? image.getPixel(j, i) : image.getPixel(i, j);
+          samples.add(px.r.toInt());
+          samples.add(px.g.toInt());
+          samples.add(px.b.toInt());
         }
-        if (whiteCount >= len * whiteRatio) {
+
+        if (samples.isEmpty) continue;
+
+        int minR = 255, maxR = 0, minG = 255, maxG = 0, minB = 255, maxB = 0;
+        int brightCount = 0;
+        for (int k = 0; k < samples.length; k += 3) {
+          final r = samples[k], g = samples[k + 1], b = samples[k + 2];
+          if (r > 180 && g > 180 && b > 180) brightCount++;
+          if (r < minR) minR = r;
+          if (r > maxR) maxR = r;
+          if (g < minG) minG = g;
+          if (g > maxG) maxG = g;
+          if (b < minB) minB = b;
+          if (b > maxB) maxB = b;
+        }
+
+        final dr = maxR - minR, dg = maxG - minG, db = maxB - minB;
+        final maxDiff = sqrt(dr * dr + dg * dg + db * db);
+        final brightRatio = brightCount / (samples.length / 3);
+
+        if (maxDiff <= params.colorThreshold || brightRatio >= params.whiteRatio) {
           lines.add(i);
         }
       }
@@ -50,7 +85,7 @@ class GridDetector {
 
       final merged = <int>[lines[0]];
       for (int i = 1; i < lines.length; i++) {
-        if (lines[i] - merged.last > 2) {
+        if (lines[i] - merged.last > params.mergeDist) {
           merged.add(lines[i]);
         }
       }
@@ -60,7 +95,7 @@ class GridDetector {
     final hLines = findLines(0);
     final vLines = findLines(1);
 
-    if (hLines.length < minGridLines || vLines.length < minGridLines) {
+    if (hLines.length < params.minLines || vLines.length < params.minLines) {
       return null;
     }
 
@@ -78,18 +113,17 @@ class GridDetector {
     final avgH = hSpacings.reduce((a, b) => a + b) ~/ hSpacings.length;
     final avgV = vSpacings.reduce((a, b) => a + b) ~/ vSpacings.length;
 
-    final hConsistent = hSpacings.every((s) =>
-        (s - avgH).abs() <= (avgH * spacingTolerance).round());
-    final vConsistent = vSpacings.every((s) =>
-        (s - avgV).abs() <= (avgV * spacingTolerance).round());
+    final hConsistent = hSpacings.every(
+      (s) => (s - avgH).abs() <= (avgH * params.spacingTolerance).round(),
+    );
+    final vConsistent = vSpacings.every(
+      (s) => (s - avgV).abs() <= (avgV * params.spacingTolerance).round(),
+    );
 
-    if (!hConsistent || !vConsistent) {
-      return null;
-    }
+    if (!hConsistent || !vConsistent) return null;
 
     final gridRows = hLines.length - 1;
     final gridCols = vLines.length - 1;
-
     if (gridRows < 2 || gridCols < 2) return null;
 
     final cropX = vLines.first;

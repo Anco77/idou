@@ -17,121 +17,117 @@ class GridDetectionResult {
 
 class GridDetector {
   static GridDetectionResult? detect(img.Image image) {
-    const settings = [
-      (sampleStep: 1, colorThreshold: 40, whiteRatio: 0.70, mergeDist: 3, spacingTolerance: 0.20, minLines: 10),
-      (sampleStep: 2, colorThreshold: 60, whiteRatio: 0.50, mergeDist: 5, spacingTolerance: 0.30, minLines: 6),
-    ];
-
-    for (final s in settings) {
-      final result = _detectWithParams(image, s);
-      if (result != null) return result;
-    }
-    return null;
-  }
-
-  static GridDetectionResult? _detectWithParams(
-    img.Image image,
-    ({
-      int sampleStep,
-      int colorThreshold,
-      double whiteRatio,
-      int mergeDist,
-      double spacingTolerance,
-      int minLines,
-    }) params,
-  ) {
-    final w = image.width;
-    final h = image.height;
+    const varianceThreshold = 50.0;
+    const minLines = 8;
+    const spacingTolerance = 0.30;
+    const mergeDist = 3;
+    const sampleStep = 2;
 
     List<int> findLines(int axis) {
-      final lines = <int>[];
+      final w = image.width;
+      final h = image.height;
       final len = axis == 0 ? w : h;
       final otherLen = axis == 0 ? h : w;
 
+      final uniformRows = <int>[];
+
       for (int i = 0; i < otherLen; i++) {
-        final samples = <int>[];
-        for (int j = 0; j < len; j += params.sampleStep) {
+        double sumR = 0, sumG = 0, sumB = 0;
+        int count = 0;
+
+        for (int j = 0; j < len; j += sampleStep) {
           final px = axis == 0 ? image.getPixel(j, i) : image.getPixel(i, j);
-          samples.add(px.r.toInt());
-          samples.add(px.g.toInt());
-          samples.add(px.b.toInt());
+          sumR += px.r;
+          sumG += px.g;
+          sumB += px.b;
+          count++;
         }
 
-        if (samples.isEmpty) continue;
+        if (count == 0) continue;
 
-        int minR = 255, maxR = 0, minG = 255, maxG = 0, minB = 255, maxB = 0;
-        int brightCount = 0;
-        for (int k = 0; k < samples.length; k += 3) {
-          final r = samples[k], g = samples[k + 1], b = samples[k + 2];
-          if (r > 180 && g > 180 && b > 180) brightCount++;
-          if (r < minR) minR = r;
-          if (r > maxR) maxR = r;
-          if (g < minG) minG = g;
-          if (g > maxG) maxG = g;
-          if (b < minB) minB = b;
-          if (b > maxB) maxB = b;
+        final avgR = sumR / count;
+        final avgG = sumG / count;
+        final avgB = sumB / count;
+
+        double varAcc = 0;
+        int varCount = 0;
+        for (int j = 0; j < len; j += sampleStep) {
+          final px = axis == 0 ? image.getPixel(j, i) : image.getPixel(i, j);
+          varAcc += (px.r - avgR) * (px.r - avgR) +
+              (px.g - avgG) * (px.g - avgG) +
+              (px.b - avgB) * (px.b - avgB);
+          varCount++;
         }
 
-        final dr = maxR - minR, dg = maxG - minG, db = maxB - minB;
-        final maxDiff = sqrt(dr * dr + dg * dg + db * db);
-        final brightRatio = brightCount / (samples.length / 3);
+        if (varCount == 0) continue;
+        final variance = sqrt(varAcc / varCount);
 
-        if (maxDiff <= params.colorThreshold || brightRatio >= params.whiteRatio) {
-          lines.add(i);
+        if (variance < varianceThreshold) {
+          uniformRows.add(i);
+        }
+      }
+
+      if (uniformRows.length < minLines) return [];
+
+      final merged = <int>[uniformRows[0]];
+      for (int i = 1; i < uniformRows.length; i++) {
+        if (uniformRows[i] - merged.last > mergeDist) {
+          merged.add(uniformRows[i]);
+        }
+      }
+      if (merged.length < minLines) return [];
+
+      final gaps = <int>[];
+      for (int i = 1; i < merged.length; i++) {
+        gaps.add(merged[i] - merged[i - 1]);
+      }
+
+      int bestStart = 0, bestLen = 0;
+      for (int s = 0; s < gaps.length; s++) {
+        int sumG = 0;
+        for (int e = s; e < gaps.length; e++) {
+          sumG += gaps[e];
+          final count = e - s + 1;
+          if (count < minLines - 1) continue;
+          final avg = sumG / count;
+          bool consistent = true;
+          for (int k = s; k <= e; k++) {
+            if ((gaps[k] - avg).abs() > (avg * spacingTolerance).round()) {
+              consistent = false;
+              break;
+            }
+          }
+          if (consistent && count > bestLen) {
+            bestLen = count;
+            bestStart = s;
+          }
         }
       }
 
-      if (lines.isEmpty) return [];
+      if (bestLen < minLines - 1) return [];
 
-      final merged = <int>[lines[0]];
-      for (int i = 1; i < lines.length; i++) {
-        if (lines[i] - merged.last > params.mergeDist) {
-          merged.add(lines[i]);
-        }
+      final result = <int>[merged[bestStart]];
+      for (int k = 1; k <= bestLen; k++) {
+        result.add(merged[bestStart + k]);
       }
-      return merged;
+      return result;
     }
 
     final hLines = findLines(0);
     final vLines = findLines(1);
 
-    if (hLines.length < params.minLines || vLines.length < params.minLines) {
+    if (hLines.length < minLines || vLines.length < minLines) {
       return null;
     }
-
-    final hSpacings = <int>[];
-    for (int i = 1; i < hLines.length; i++) {
-      hSpacings.add(hLines[i] - hLines[i - 1]);
-    }
-    final vSpacings = <int>[];
-    for (int i = 1; i < vLines.length; i++) {
-      vSpacings.add(vLines[i] - vLines[i - 1]);
-    }
-
-    if (hSpacings.isEmpty || vSpacings.isEmpty) return null;
-
-    final avgH = hSpacings.reduce((a, b) => a + b) ~/ hSpacings.length;
-    final avgV = vSpacings.reduce((a, b) => a + b) ~/ vSpacings.length;
-
-    final hConsistent = hSpacings.every(
-      (s) => (s - avgH).abs() <= (avgH * params.spacingTolerance).round(),
-    );
-    final vConsistent = vSpacings.every(
-      (s) => (s - avgV).abs() <= (avgV * params.spacingTolerance).round(),
-    );
-
-    if (!hConsistent || !vConsistent) return null;
-
-    final gridRows = hLines.length - 1;
-    final gridCols = vLines.length - 1;
-    if (gridRows < 2 || gridCols < 2) return null;
 
     final cropX = vLines.first;
     final cropY = hLines.first;
     final cropW = vLines.last - vLines.first;
     final cropH = hLines.last - hLines.first;
+    final gridRows = hLines.length - 1;
+    final gridCols = vLines.length - 1;
 
-    if (cropW <= 0 || cropH <= 0) return null;
+    if (cropW <= 0 || cropH <= 0 || gridRows < 2 || gridCols < 2) return null;
 
     return GridDetectionResult(
       cropX: cropX,

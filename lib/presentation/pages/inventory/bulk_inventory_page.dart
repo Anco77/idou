@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../common/quantity_selector.dart';
 import 'package:idou/core/database/daos/inventory_dao.dart';
+import '../../../domain/repositories/inventory_repository.dart';
 import '../../providers/inventory_providers.dart';
 
 class BulkInventoryPage extends ConsumerStatefulWidget {
@@ -14,19 +15,30 @@ class BulkInventoryPage extends ConsumerStatefulWidget {
 class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
   final Set<int> _selectedColorIds = {};
   final Set<String> _expandedSeries = {};
+  bool _isSubmitting = false;
 
   Color _seriesColor(String series) {
     switch (series) {
-      case 'A': return const Color(0xFFFFC107);
-      case 'B': return const Color(0xFF4CAF50);
-      case 'C': return const Color(0xFF2196F3);
-      case 'D': return const Color(0xFF9C27B0);
-      case 'E': return const Color(0xFFE91E63);
-      case 'F': return const Color(0xFFF44336);
-      case 'G': return const Color(0xFF795548);
-      case 'H': return const Color(0xFF607D8B);
-      case 'M': return const Color(0xFF9E9E9E);
-      default: return Colors.grey;
+      case 'A':
+        return const Color(0xFFFFC107);
+      case 'B':
+        return const Color(0xFF4CAF50);
+      case 'C':
+        return const Color(0xFF2196F3);
+      case 'D':
+        return const Color(0xFF9C27B0);
+      case 'E':
+        return const Color(0xFFE91E63);
+      case 'F':
+        return const Color(0xFFF44336);
+      case 'G':
+        return const Color(0xFF795548);
+      case 'H':
+        return const Color(0xFF607D8B);
+      case 'M':
+        return const Color(0xFF9E9E9E);
+      default:
+        return Colors.grey;
     }
   }
 
@@ -36,7 +48,8 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
     final notifier = ref.read(inventoryStateProvider.notifier);
     final grouped = state.groupedItems;
     final allColorIds = state.items.map((i) => i.colorId).toSet();
-    final allSelected = _selectedColorIds.length == allColorIds.length && allColorIds.isNotEmpty;
+    final allSelected = _selectedColorIds.length == allColorIds.length &&
+        allColorIds.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -57,7 +70,11 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
               children: [
                 for (final series in seriesOrder)
                   if (grouped.containsKey(series))
-                    _buildSeriesSection(series, grouped[series]!),
+                    _buildSeriesSection(
+                      series,
+                      grouped[series]!,
+                      state.lowStockThreshold,
+                    ),
               ],
             ),
       bottomNavigationBar: _selectedColorIds.isEmpty
@@ -69,7 +86,9 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _batchAction(notifier, 'consume'),
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => _batchAction(notifier, 'consume'),
                         icon: const Icon(Icons.remove_circle_outline),
                         label: Text('消耗 (${_selectedColorIds.length})'),
                         style: OutlinedButton.styleFrom(
@@ -81,7 +100,9 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () => _batchAction(notifier, 'restock'),
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => _batchAction(notifier, 'restock'),
                         icon: const Icon(Icons.add_circle_outline),
                         label: Text('补货 (${_selectedColorIds.length})'),
                         style: FilledButton.styleFrom(
@@ -96,10 +117,15 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
     );
   }
 
-  Widget _buildSeriesSection(String series, List<InventoryWithColor> items) {
+  Widget _buildSeriesSection(
+    String series,
+    List<InventoryWithColor> items,
+    int lowStockThreshold,
+  ) {
     final isExpanded = _expandedSeries.contains(series);
     final color = _seriesColor(series);
-    final selectedInSeries = items.where((i) => _selectedColorIds.contains(i.colorId)).length;
+    final selectedInSeries =
+        items.where((i) => _selectedColorIds.contains(i.colorId)).length;
     final seriesSelected = selectedInSeries == items.length;
     final seriesPartial = selectedInSeries > 0 && !seriesSelected;
 
@@ -138,10 +164,14 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
                     width: 32,
                     height: 32,
                     child: seriesPartial
-                        ? Icon(Icons.indeterminate_check_box, color: Colors.blue[400], size: 24)
+                        ? Icon(Icons.indeterminate_check_box,
+                            color: Colors.blue[400], size: 24)
                         : Icon(
-                            seriesSelected ? Icons.check_box : Icons.check_box_outline_blank,
-                            color: seriesSelected ? Colors.blue : Colors.grey[400],
+                            seriesSelected
+                                ? Icons.check_box
+                                : Icons.check_box_outline_blank,
+                            color:
+                                seriesSelected ? Colors.blue : Colors.grey[400],
                             size: 24,
                           ),
                   ),
@@ -167,7 +197,8 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
                 const SizedBox(width: 8),
                 Text(
                   seriesNames[series] ?? series,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -177,7 +208,8 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
                 if (selectedInSeries > 0) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(8),
@@ -198,13 +230,15 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
           ),
         ),
         if (isExpanded)
-          ...items.map((item) => _buildColorTile(item)),
+          ...items.map(
+            (item) => _buildColorTile(item, lowStockThreshold),
+          ),
         const Divider(height: 1, indent: 12, endIndent: 12),
       ],
     );
   }
 
-  Widget _buildColorTile(InventoryWithColor item) {
+  Widget _buildColorTile(InventoryWithColor item, int lowStockThreshold) {
     final isSelected = _selectedColorIds.contains(item.colorId);
     final color = Color.fromARGB(255, item.r, item.g, item.b);
 
@@ -237,13 +271,16 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
         '库存: ${item.currentQty}',
         style: TextStyle(
           fontSize: 11,
-          color: item.isLowStock ? Colors.red : Colors.grey[600],
+          color: item.isLowStockAt(lowStockThreshold)
+              ? Colors.red
+              : Colors.grey[600],
         ),
       ),
     );
   }
 
-  Future<void> _batchAction(InventoryStateNotifier notifier, String action) async {
+  Future<void> _batchAction(
+      InventoryStateNotifier notifier, String action) async {
     if (_selectedColorIds.isEmpty) return;
 
     final qty = await QuantitySelector.show(
@@ -254,20 +291,81 @@ class _BulkInventoryPageState extends ConsumerState<BulkInventoryPage> {
 
     final label = action == 'restock' ? '补货' : '消耗';
     final count = _selectedColorIds.length;
-
-    for (final colorId in _selectedColorIds) {
-      if (action == 'restock') {
-        await notifier.restock(colorId, qty);
-      } else {
-        await notifier.consume(colorId, qty);
-      }
-    }
-
-    if (context.mounted) {
-      setState(() => _selectedColorIds.clear());
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已${label}$count个色号，每个$qty颗')),
+    setState(() => _isSubmitting = true);
+    try {
+      final result = await notifier.batchAdjust(
+        {for (final colorId in _selectedColorIds) colorId: qty},
+        restock: action == 'restock',
       );
+
+      if (!mounted) return;
+      if (!result.success) {
+        await _showInsufficientDialog(result.insufficientColors);
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已$label$count个色号，每个$qty颗')),
+      );
+      setState(() => _selectedColorIds.clear());
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('批量操作失败，库存未发生变化，请重试')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _showInsufficientDialog(
+    List<InsufficientColor> insufficient,
+  ) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('批量操作未执行'),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${insufficient.length} 个色号库存不足，所有库存均未改变。'),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: insufficient.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, index) {
+                    final item = insufficient[index];
+                    final code = item.colorName.startsWith('Mard_')
+                        ? item.colorName.substring(5)
+                        : item.colorName;
+                    final missing = item.required - item.available;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(code),
+                      subtitle: Text(
+                        '需要 ${item.required}，现有 ${item.available}，缺少 $missing',
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
   }
 }

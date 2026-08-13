@@ -47,12 +47,16 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
 
       // 构建标准色列表
       final state = ref.read(inventoryStateProvider);
-      final standards = state.items.map((i) => StandardColor(
-        colorId: i.colorId,
-        colorName: i.colorName,
-        hexValue: i.hexValue,
-        r: i.r, g: i.g, b: i.b,
-      )).toList();
+      final standards = state.items
+          .map((i) => StandardColor(
+                colorId: i.colorId,
+                colorName: i.colorName,
+                hexValue: i.hexValue,
+                r: i.r,
+                g: i.g,
+                b: i.b,
+              ))
+          .toList();
 
       final matcher = ColorMatcher(standards);
       final service = PatternGenerationService(matcher);
@@ -78,7 +82,8 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('生成预览 ${_boardType != null ? "(${_boardType!.label})" : ""}'),
+        title:
+            Text('生成预览 ${_boardType != null ? "(${_boardType!.label})" : ""}'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
@@ -110,7 +115,8 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             Text('生成失败: $_error'),
-            FilledButton(onPressed: () => context.pop(), child: const Text('返回')),
+            FilledButton(
+                onPressed: () => context.pop(), child: const Text('返回')),
           ],
         ),
       );
@@ -151,7 +157,8 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _Stat('板型', result.boardType.label),
-                      _Stat('尺寸', '${result.boardType.size}×${result.boardType.size}'),
+                      _Stat('尺寸',
+                          '${result.boardType.size}×${result.boardType.size}'),
                       _Stat('总颗数', '${result.totalBeads}'),
                       _Stat('色号数', '${result.materialList.length}'),
                     ],
@@ -172,7 +179,8 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
                 return ListTile(
                   dense: true,
                   leading: Container(
-                    width: 24, height: 24,
+                    width: 24,
+                    height: 24,
                     decoration: BoxDecoration(
                       color: _getColor(colorId),
                       borderRadius: BorderRadius.circular(4),
@@ -207,7 +215,8 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
                     onPressed: () => _deductAndSave(result),
                     icon: const Icon(Icons.check_circle),
                     label: const Text('扣库存并保存'),
-                    style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary),
                   ),
                 ),
               ],
@@ -233,19 +242,22 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
     await notifier.savePattern(
       pattern: PatternItem(
         id: id,
-        title: 'AI图纸_${DateTime.now().toString().substring(0, 19).replaceAll(':', '').replaceAll(' ', '_')}',
+        title:
+            'AI图纸_${DateTime.now().toString().substring(0, 19).replaceAll(':', '').replaceAll(' ', '_')}',
         originalImage: imagePath,
         uploadTime: DateTime.now(),
         status: 'pending',
         source: 'ai_generate',
         createdAt: DateTime.now(),
       ),
-      consumptions: result.materialList.entries.map((e) => PatternConsumptionItem(
-        id: 0,
-        patternId: id,
-        colorId: e.key,
-        quantity: e.value,
-      )).toList(),
+      consumptions: result.materialList.entries
+          .map((e) => PatternConsumptionItem(
+                id: 0,
+                patternId: id,
+                colorId: e.key,
+                quantity: e.value,
+              ))
+          .toList(),
     );
 
     if (mounted) {
@@ -268,7 +280,8 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('库存已扣除！'), backgroundColor: AppColors.success),
+        const SnackBar(
+            content: Text('库存已扣除！'), backgroundColor: AppColors.success),
       );
     }
   }
@@ -283,7 +296,8 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );

@@ -36,14 +36,16 @@ class PatternsPage extends ConsumerWidget {
                     children: [
                       Icon(Icons.image_outlined, size: 64, color: Colors.grey),
                       SizedBox(height: 16),
-                      Text('暂无图纸', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                      Text('暂无图纸',
+                          style: TextStyle(color: Colors.grey, fontSize: 16)),
                       SizedBox(height: 8),
                       Text('上传图纸并确认扣除后，将自动保存到此处'),
                     ],
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: () => ref.read(patternsStateProvider.notifier).loadPatterns(),
+                  onRefresh: () =>
+                      ref.read(patternsStateProvider.notifier).loadPatterns(),
                   child: ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: state.patterns.length,
@@ -61,7 +63,8 @@ class PatternsPage extends ConsumerWidget {
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Container(
                                 color: Colors.grey.shade200,
-                                child: const Icon(Icons.image, color: Colors.grey),
+                                child:
+                                    const Icon(Icons.image, color: Colors.grey),
                               ),
                             ),
                           ),
@@ -78,7 +81,8 @@ class PatternsPage extends ConsumerWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: pattern.isCompleted
                                       ? AppColors.success.withValues(alpha: 0.1)
@@ -89,16 +93,20 @@ class PatternsPage extends ConsumerWidget {
                                   pattern.isCompleted ? '已完成' : '未完成',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: pattern.isCompleted ? AppColors.success : Colors.orange,
+                                    color: pattern.isCompleted
+                                        ? AppColors.success
+                                        : Colors.orange,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.chevron_right, color: Colors.grey),
+                              const Icon(Icons.chevron_right,
+                                  color: Colors.grey),
                             ],
                           ),
-                          onTap: () => context.go('/patterns/detail/${pattern.id}'),
+                          onTap: () =>
+                              context.go('/patterns/detail/${pattern.id}'),
                         ),
                       );
                     },

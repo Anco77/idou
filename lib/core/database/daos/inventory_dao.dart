@@ -41,6 +41,8 @@ class InventoryWithColor {
 
   bool get isLowStock => currentQty < 500;
 
+  bool isLowStockAt(int threshold) => currentQty < threshold;
+
   String get series {
     final name = colorName;
     if (name.length < 6) return '';
@@ -53,29 +55,40 @@ class InventoryWithColor {
     return name.substring(5);
   }
 
-  Map<String, dynamic> toMap() => {
-    'color_id': colorId,
-    'color_name': colorName,
-    'hex_value': hexValue,
-    'r': r, 'g': g, 'b': b,
-    'current_qty': currentQty,
-    'updated_at': updatedAt.toIso8601String(),
-    'total_consumed': totalConsumed,
-  };
+  bool matches(String query) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+    return colorName.toLowerCase().contains(normalized) ||
+        mardId.toLowerCase().contains(normalized) ||
+        colorId.toString() == normalized;
+  }
 
-  factory InventoryWithColor.fromMap(Map<String, dynamic> map) => InventoryWithColor(
-    colorId: map['color_id'] as int,
-    colorName: map['color_name'] as String,
-    hexValue: map['hex_value'] as String,
-    r: map['r'] as int,
-    g: map['g'] as int,
-    b: map['b'] as int,
-    currentQty: (map['current_qty'] as int?) ?? 0,
-    updatedAt: map['updated_at'] != null
-        ? DateTime.parse(map['updated_at'] as String)
-        : DateTime.now(),
-    totalConsumed: (map['total_consumed'] as int?) ?? 0,
-  );
+  Map<String, dynamic> toMap() => {
+        'color_id': colorId,
+        'color_name': colorName,
+        'hex_value': hexValue,
+        'r': r,
+        'g': g,
+        'b': b,
+        'current_qty': currentQty,
+        'updated_at': updatedAt.toIso8601String(),
+        'total_consumed': totalConsumed,
+      };
+
+  factory InventoryWithColor.fromMap(Map<String, dynamic> map) =>
+      InventoryWithColor(
+        colorId: map['color_id'] as int,
+        colorName: map['color_name'] as String,
+        hexValue: map['hex_value'] as String,
+        r: map['r'] as int,
+        g: map['g'] as int,
+        b: map['b'] as int,
+        currentQty: (map['current_qty'] as int?) ?? 0,
+        updatedAt: map['updated_at'] != null
+            ? DateTime.parse(map['updated_at'] as String)
+            : DateTime.now(),
+        totalConsumed: (map['total_consumed'] as int?) ?? 0,
+      );
 }
 
 /// 库存变更记录
@@ -99,24 +112,25 @@ class InventoryLogItem {
   });
 
   Map<String, dynamic> toMap() => {
-    'id': id,
-    'color_id': colorId,
-    'change_type': changeType,
-    'quantity': quantity,
-    'result_qty': resultQty,
-    'pattern_id': patternId,
-    'created_at': createdAt.toIso8601String(),
-  };
+        'id': id,
+        'color_id': colorId,
+        'change_type': changeType,
+        'quantity': quantity,
+        'result_qty': resultQty,
+        'pattern_id': patternId,
+        'created_at': createdAt.toIso8601String(),
+      };
 
-  factory InventoryLogItem.fromMap(Map<String, dynamic> map) => InventoryLogItem(
-    id: map['id'] as int,
-    colorId: map['color_id'] as int,
-    changeType: map['change_type'] as String,
-    quantity: map['quantity'] as int,
-    resultQty: map['result_qty'] as int,
-    patternId: map['pattern_id'] as String?,
-    createdAt: DateTime.parse(map['created_at'] as String),
-  );
+  factory InventoryLogItem.fromMap(Map<String, dynamic> map) =>
+      InventoryLogItem(
+        id: map['id'] as int,
+        colorId: map['color_id'] as int,
+        changeType: map['change_type'] as String,
+        quantity: map['quantity'] as int,
+        resultQty: map['result_qty'] as int,
+        patternId: map['pattern_id'] as String?,
+        createdAt: DateTime.parse(map['created_at'] as String),
+      );
 }
 
 /// 全局操作日志（含色号信息和颜色值）
@@ -132,6 +146,7 @@ class OperationLogItem {
   final String changeType;
   final int quantity;
   final int resultQty;
+  final String? patternId;
   final DateTime createdAt;
 
   const OperationLogItem({
@@ -146,6 +161,7 @@ class OperationLogItem {
     required this.changeType,
     required this.quantity,
     required this.resultQty,
+    this.patternId,
     required this.createdAt,
   });
 }
@@ -156,18 +172,257 @@ class InventoryDao {
 
   InventoryDao(this.db);
 
+  /// Atomically applies one inventory movement and its immutable log entry.
+  /// Returns false when the color is unknown or the resulting balance would be
+  /// negative. Both writes share the same Drift transaction.
+  Future<bool> applyMovementAtomic({
+    required int colorId,
+    required int delta,
+    required String changeType,
+    String? patternId,
+  }) async {
+    if (delta == 0) return false;
+    return db.transaction(() async {
+      final color = await db.customSelect(
+        'SELECT color_id FROM color_standards WHERE color_id = ?',
+        variables: [Variable.withInt(colorId)],
+      ).get();
+      if (color.isEmpty) return false;
+
+      final rows = await db.customSelect(
+        'SELECT current_qty FROM inventory WHERE color_id = ?',
+        variables: [Variable.withInt(colorId)],
+      ).get();
+      final current = rows.isEmpty ? 0 : rows.single.data['current_qty'] as int;
+      final next = current + delta;
+      if (next < 0) return false;
+      final now = DateTime.now().toIso8601String();
+
+      await db.customInsert(
+        'INSERT INTO inventory (color_id, current_qty, updated_at) VALUES (?, ?, ?) '
+        'ON CONFLICT(color_id) DO UPDATE SET current_qty = excluded.current_qty, updated_at = excluded.updated_at',
+        variables: [
+          Variable.withInt(colorId),
+          Variable.withInt(next),
+          Variable(now),
+        ],
+      );
+      await db.customInsert(
+        'INSERT INTO inventory_logs (color_id, change_type, quantity, result_qty, pattern_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        variables: [
+          Variable.withInt(colorId),
+          Variable(changeType),
+          Variable.withInt(delta),
+          Variable.withInt(next),
+          Variable(patternId),
+          Variable(now),
+        ],
+      );
+      return true;
+    });
+  }
+
+  Future<void> setQuantityAtomic(int colorId, int quantity) async {
+    if (quantity < 0) throw ArgumentError.value(quantity, 'quantity');
+    await db.transaction(() async {
+      final color = await db.customSelect(
+        'SELECT color_id FROM color_standards WHERE color_id = ?',
+        variables: [Variable.withInt(colorId)],
+      ).get();
+      if (color.isEmpty) throw ArgumentError.value(colorId, 'colorId');
+      final rows = await db.customSelect(
+        'SELECT current_qty FROM inventory WHERE color_id = ?',
+        variables: [Variable.withInt(colorId)],
+      ).get();
+      final current = rows.isEmpty ? 0 : rows.single.data['current_qty'] as int;
+      final delta = quantity - current;
+      if (delta == 0) return;
+      final now = DateTime.now().toIso8601String();
+      await db.customInsert(
+        'INSERT INTO inventory (color_id, current_qty, updated_at) VALUES (?, ?, ?) '
+        'ON CONFLICT(color_id) DO UPDATE SET current_qty = excluded.current_qty, updated_at = excluded.updated_at',
+        variables: [
+          Variable.withInt(colorId),
+          Variable.withInt(quantity),
+          Variable(now)
+        ],
+      );
+      await db.customInsert(
+        'INSERT INTO inventory_logs (color_id, change_type, quantity, result_qty, created_at) VALUES (?, ?, ?, ?, ?)',
+        variables: [
+          Variable.withInt(colorId),
+          const Variable('set'),
+          Variable.withInt(delta),
+          Variable.withInt(quantity),
+          Variable(now),
+        ],
+      );
+    });
+  }
+
+  Future<({bool success, List<Map<String, int>> insufficient})>
+      applyBatchAtomic(
+    Map<int, int> quantities, {
+    required bool restock,
+    String? patternId,
+  }) async {
+    if (quantities.isEmpty || quantities.values.any((value) => value <= 0)) {
+      return (success: false, insufficient: <Map<String, int>>[]);
+    }
+    return db.transaction(() async {
+      final insufficient = <Map<String, int>>[];
+      final balances = <int, int>{};
+      final originalBalances = <int, int>{};
+      final existingRows = <int, bool>{};
+      for (final entry in quantities.entries) {
+        final row = await db.customSelect(
+          'SELECT COALESCE(current_qty, 0) AS current_qty FROM inventory WHERE color_id = ?',
+          variables: [Variable.withInt(entry.key)],
+        ).get();
+        existingRows[entry.key] = row.isNotEmpty;
+        final current = row.isEmpty ? 0 : row.single.data['current_qty'] as int;
+        originalBalances[entry.key] = current;
+        final next = restock ? current + entry.value : current - entry.value;
+        if (next < 0) {
+          insufficient.add({
+            'colorId': entry.key,
+            'required': entry.value,
+            'available': current
+          });
+        }
+        balances[entry.key] = next;
+      }
+      if (insufficient.isNotEmpty) {
+        return (success: false, insufficient: insufficient);
+      }
+      final now = DateTime.now().toIso8601String();
+      for (final entry in quantities.entries) {
+        final current = originalBalances[entry.key]!;
+        final next = balances[entry.key]!;
+        final delta = restock ? entry.value : -entry.value;
+        final affectedRows = existingRows[entry.key]!
+            ? await db.customUpdate(
+                'UPDATE inventory SET current_qty = ?, updated_at = ? '
+                'WHERE color_id = ? AND current_qty = ?',
+                variables: [
+                  Variable.withInt(next),
+                  Variable(now),
+                  Variable.withInt(entry.key),
+                  Variable.withInt(current),
+                ],
+                updates: {db.inventory},
+              )
+            : await db.customUpdate(
+                'INSERT INTO inventory (color_id, current_qty, updated_at) '
+                'VALUES (?, ?, ?) ON CONFLICT(color_id) DO NOTHING',
+                variables: [
+                  Variable.withInt(entry.key),
+                  Variable.withInt(next),
+                  Variable(now),
+                ],
+                updates: {db.inventory},
+              );
+        if (affectedRows != 1) {
+          throw StateError(
+            'Inventory changed while applying batch for color ${entry.key}',
+          );
+        }
+        await db.customInsert(
+          'INSERT INTO inventory_logs (color_id, change_type, quantity, result_qty, pattern_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+          variables: [
+            Variable.withInt(entry.key),
+            Variable(restock
+                ? 'restock'
+                : patternId == null
+                    ? 'consume'
+                    : 'deduct_pattern'),
+            Variable.withInt(delta),
+            Variable.withInt(next),
+            Variable(patternId),
+            Variable(now),
+          ],
+        );
+      }
+      return (success: true, insufficient: <Map<String, int>>[]);
+    });
+  }
+
+  Future<bool> reverseLog(int logId) async {
+    return db.transaction(() async {
+      final rows = await db.customSelect(
+        'SELECT color_id, change_type, quantity, pattern_id '
+        'FROM inventory_logs WHERE id = ?',
+        variables: [Variable.withInt(logId)],
+      ).get();
+      if (rows.isEmpty) return false;
+      final row = rows.single.data;
+      final patternId = row['pattern_id'] as String?;
+      if (row['change_type'] != 'deduct_pattern' || patternId == null) {
+        return false;
+      }
+      final colorId = row['color_id'] as int;
+      final quantity = row['quantity'] as int;
+      final reversed = await db.customSelect(
+        'SELECT id FROM inventory_logs '
+        "WHERE color_id = ? AND pattern_id = ? AND change_type = 'reversal' "
+        'LIMIT 1',
+        variables: [Variable.withInt(colorId), Variable(patternId)],
+      ).get();
+      if (reversed.isNotEmpty) return false;
+      final current = await db.customSelect(
+        'SELECT COALESCE(current_qty, 0) AS current_qty FROM inventory WHERE color_id = ?',
+        variables: [Variable.withInt(colorId)],
+      ).get();
+      final balance =
+          current.isEmpty ? 0 : current.single.data['current_qty'] as int;
+      final next = balance - quantity;
+      if (next < 0) return false;
+      final now = DateTime.now().toIso8601String();
+      await db.customInsert(
+        'INSERT INTO inventory (color_id, current_qty, updated_at) VALUES (?, ?, ?) '
+        'ON CONFLICT(color_id) DO UPDATE SET current_qty = excluded.current_qty, updated_at = excluded.updated_at',
+        variables: [
+          Variable.withInt(colorId),
+          Variable.withInt(next),
+          Variable(now)
+        ],
+      );
+      await db.customInsert(
+        'INSERT INTO inventory_logs (color_id, change_type, quantity, result_qty, pattern_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        variables: [
+          Variable.withInt(colorId),
+          const Variable('reversal'),
+          Variable.withInt(-quantity),
+          Variable.withInt(next),
+          Variable(patternId),
+          Variable(now),
+        ],
+      );
+      return true;
+    });
+  }
+
+  Future<({bool success, List<Map<String, int>> insufficient})>
+      applyDeductionAtomic(
+    Map<int, int> quantities, {
+    String? patternId,
+  }) =>
+          applyBatchAtomic(quantities, restock: false, patternId: patternId);
+
   /// 获取所有色号的库存（含色号信息和总消耗量）
   Future<List<InventoryWithColor>> getAllInventory() async {
-    final rows = await db.customSelect(
-      'SELECT cs.*, inv.current_qty, inv.updated_at, '
-      'COALESCE(('
-      '  SELECT SUM(ABS(quantity)) FROM inventory_logs '
-      '  WHERE color_id = cs.color_id AND change_type IN (\'consume\', \'deduct_pattern\')'
-      '), 0) AS total_consumed '
-      'FROM color_standards cs '
-      'LEFT JOIN inventory inv ON cs.color_id = inv.color_id '
-      'ORDER BY cs.color_id ASC',
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT cs.*, inv.current_qty, inv.updated_at, '
+          'COALESCE(('
+          '  SELECT SUM(ABS(quantity)) FROM inventory_logs '
+          '  WHERE color_id = cs.color_id AND change_type IN (\'consume\', \'deduct_pattern\')'
+          '), 0) AS total_consumed '
+          'FROM color_standards cs '
+          'LEFT JOIN inventory inv ON cs.color_id = inv.color_id '
+          'ORDER BY cs.color_id ASC',
+        )
+        .get();
     return rows.map((row) => InventoryWithColor.fromMap(row.data)).toList();
   }
 
@@ -243,7 +498,8 @@ class InventoryDao {
   }
 
   /// 获取色号的变更历史
-  Future<List<InventoryLogItem>> getLogsForColor(int colorId, {int limit = 50}) async {
+  Future<List<InventoryLogItem>> getLogsForColor(int colorId,
+      {int limit = 50}) async {
     final rows = await db.customSelect(
       'SELECT * FROM inventory_logs WHERE color_id = ? ORDER BY created_at DESC LIMIT ?',
       variables: [Variable.withInt(colorId), Variable.withInt(limit)],
@@ -252,25 +508,53 @@ class InventoryDao {
   }
 
   /// 获取全局操作日志（按时间倒序，可筛选类型）
-  Future<List<OperationLogItem>> getAllLogs({String? changeType, int limit = 200, int offset = 0}) async {
-    String where = '';
+  Future<List<OperationLogItem>> getAllLogs(
+      {String? changeType,
+      int? colorId,
+      DateTime? from,
+      DateTime? to,
+      int limit = 200,
+      int offset = 0}) async {
+    final conditions = <String>[];
     final params = <dynamic>[];
     if (changeType != null && changeType.isNotEmpty) {
-      where = 'WHERE il.change_type = ?';
-      params.add(changeType);
+      if (changeType == 'consume') {
+        conditions.add("il.change_type IN ('consume', 'deduct_pattern')");
+      } else {
+        conditions.add('il.change_type = ?');
+        params.add(changeType);
+      }
     }
+    if (colorId != null) {
+      conditions.add('il.color_id = ?');
+      params.add(colorId);
+    }
+    if (from != null) {
+      conditions.add('il.created_at >= ?');
+      params.add(from.toIso8601String());
+    }
+    if (to != null) {
+      conditions.add('il.created_at < ?');
+      params.add(to.toIso8601String());
+    }
+    final where = conditions.isEmpty ? '' : 'WHERE ${conditions.join(' AND ')}';
     params.add(limit);
     params.add(offset);
 
-    final rows = await db.customSelect(
-      'SELECT il.id, il.color_id, cs.color_name, cs.hex_value, cs.r, cs.g, cs.b, '
-      'il.change_type, il.quantity, il.result_qty, il.created_at '
-      'FROM inventory_logs il '
-      'INNER JOIN color_standards cs ON il.color_id = cs.color_id '
-      '$where '
-      'ORDER BY il.created_at DESC LIMIT ? OFFSET ?',
-      variables: params.map((p) => p is int ? Variable.withInt(p) : Variable(p as String)).toList(),
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT il.id, il.color_id, cs.color_name, cs.hex_value, cs.r, cs.g, cs.b, '
+          'il.change_type, il.quantity, il.result_qty, il.pattern_id, il.created_at '
+          'FROM inventory_logs il '
+          'INNER JOIN color_standards cs ON il.color_id = cs.color_id '
+          '$where '
+          'ORDER BY il.created_at DESC LIMIT ? OFFSET ?',
+          variables: params
+              .map(
+                  (p) => p is int ? Variable.withInt(p) : Variable(p as String))
+              .toList(),
+        )
+        .get();
 
     return rows.map((row) {
       final d = row.data;
@@ -288,13 +572,15 @@ class InventoryDao {
         changeType: d['change_type'] as String,
         quantity: d['quantity'] as int,
         resultQty: d['result_qty'] as int,
+        patternId: d['pattern_id'] as String?,
         createdAt: DateTime.parse(d['created_at'] as String),
       );
     }).toList();
   }
 
   /// 获取所有低量色号
-  Future<List<InventoryWithColor>> getLowStockColors({int threshold = 500}) async {
+  Future<List<InventoryWithColor>> getLowStockColors(
+      {int threshold = 500}) async {
     final rows = await db.customSelect(
       'SELECT cs.*, inv.current_qty, inv.updated_at, '
       'COALESCE(('

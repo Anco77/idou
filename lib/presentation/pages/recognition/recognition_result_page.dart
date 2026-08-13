@@ -15,7 +15,8 @@ class RecognitionResultPage extends ConsumerStatefulWidget {
   const RecognitionResultPage({super.key});
 
   @override
-  ConsumerState<RecognitionResultPage> createState() => _RecognitionResultPageState();
+  ConsumerState<RecognitionResultPage> createState() =>
+      _RecognitionResultPageState();
 }
 
 class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
@@ -53,12 +54,16 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
 
     try {
       final state = ref.read(inventoryStateProvider);
-      final standards = state.items.map((i) => StandardColor(
-        colorId: i.colorId,
-        colorName: i.colorName,
-        hexValue: i.hexValue,
-        r: i.r, g: i.g, b: i.b,
-      )).toList();
+      final standards = state.items
+          .map((i) => StandardColor(
+                colorId: i.colorId,
+                colorName: i.colorName,
+                hexValue: i.hexValue,
+                r: i.r,
+                g: i.g,
+                b: i.b,
+              ))
+          .toList();
 
       final matcher = ColorMatcher(standards);
       final service = BeadPatternService(matcher);
@@ -70,9 +75,12 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
       }
       final raw = await service.processWithOcr(
         imagePath: _imagePath!,
-        cropX: _cropX, cropY: _cropY,
-        cropW: _cropW, cropH: _cropH,
-        gridCols: _gridCols, gridRows: _gridRows,
+        cropX: _cropX,
+        cropY: _cropY,
+        cropW: _cropW,
+        cropH: _cropH,
+        gridCols: _gridCols,
+        gridRows: _gridRows,
         mardIdToColorId: mardIdToColorId,
       );
 
@@ -99,12 +107,16 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
         _result = _rawResult;
       } else {
         final state = ref.read(inventoryStateProvider);
-        final standards = state.items.map((i) => StandardColor(
-          colorId: i.colorId,
-          colorName: i.colorName,
-          hexValue: i.hexValue,
-          r: i.r, g: i.g, b: i.b,
-        )).toList();
+        final standards = state.items
+            .map((i) => StandardColor(
+                  colorId: i.colorId,
+                  colorName: i.colorName,
+                  hexValue: i.hexValue,
+                  r: i.r,
+                  g: i.g,
+                  b: i.b,
+                ))
+            .toList();
         final matcher = ColorMatcher(standards);
         final service = BeadPatternService(matcher);
         _result = service.applyMerge(_rawResult!, threshold);
@@ -120,7 +132,9 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
-            while (context.canPop()) { context.pop(); }
+            while (context.canPop()) {
+              context.pop();
+            }
           },
         ),
       ),
@@ -166,7 +180,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
 
     final result = _result!;
     final totalColors = result.colorConsumptions.length;
-    final totalBeads = result.colorConsumptions.values.fold<int>(0, (a, b) => a + b);
+    final totalBeads =
+        result.colorConsumptions.values.fold<int>(0, (a, b) => a + b);
     final inventoryItems = ref.read(inventoryStateProvider).items;
 
     final sortedEntries = result.colorConsumptions.entries.toList()
@@ -201,7 +216,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
               // Merge threshold slider
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
                     children: [
                       const Text('颜色合并', style: TextStyle(fontSize: 14)),
@@ -221,8 +237,11 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
                       SizedBox(
                         width: 48,
                         child: Text(
-                          _mergeThreshold == 0 ? '关闭' : '${_mergeThreshold.round()}',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          _mergeThreshold == 0
+                              ? '关闭'
+                              : '${_mergeThreshold.round()}',
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500),
                         ),
                       ),
                     ],
@@ -239,8 +258,10 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
               const SizedBox(height: 8),
 
               ...sortedEntries.map((entry) => _buildColorRow(
-                entry.key, entry.value, inventoryItems,
-              )),
+                    entry.key,
+                    entry.value,
+                    inventoryItems,
+                  )),
             ],
           ),
         ),
@@ -255,7 +276,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
                 onPressed: _isDeducting ? null : _handleDeduct,
                 icon: _isDeducting
                     ? const SizedBox(
-                        width: 16, height: 16,
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.check_circle),
@@ -295,7 +317,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
     );
   }
 
-  Widget _buildColorRow(int colorId, int needed, List<InventoryWithColor> inventoryItems) {
+  Widget _buildColorRow(
+      int colorId, int needed, List<InventoryWithColor> inventoryItems) {
     final item = inventoryItems.where((i) => i.colorId == colorId).firstOrNull;
     final available = item?.currentQty ?? 0;
     final r = item?.r ?? 128;
@@ -352,7 +375,9 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
           context: context,
           builder: (ctx) {
             final mardIds = deductResult.insufficientColors.map((e) {
-              final item = inventoryItems.where((i) => i.colorId == e.colorId).firstOrNull;
+              final item = inventoryItems
+                  .where((i) => i.colorId == e.colorId)
+                  .firstOrNull;
               return item?.mardId ?? '#${e.colorId.toString().padLeft(3, '0')}';
             }).toList();
             return AlertDialog(
@@ -363,7 +388,10 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
                 children: [
                   const Text('以下色号库存不足，已取消扣除操作：'),
                   const SizedBox(height: 8),
-                  ...deductResult.insufficientColors.asMap().entries.map((entry) {
+                  ...deductResult.insufficientColors
+                      .asMap()
+                      .entries
+                      .map((entry) {
                     final i = entry.key;
                     final e = entry.value;
                     final mardId = mardIds[i];
@@ -373,13 +401,13 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
                   }),
                 ],
               ),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('知道了'),
-              ),
-            ],
-          );
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('知道了'),
+                ),
+              ],
+            );
           },
         );
         setState(() => _isDeducting = false);
@@ -391,24 +419,28 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
       await patternsNotifier.savePattern(
         pattern: PatternItem(
           id: patternId,
-          title: '图纸_${DateTime.now().toString().substring(0, 19).replaceAll(':', '').replaceAll(' ', '_')}',
+          title:
+              '图纸_${DateTime.now().toString().substring(0, 19).replaceAll(':', '').replaceAll(' ', '_')}',
           originalImage: result.imagePath,
           uploadTime: DateTime.now(),
           status: 'pending',
           source: 'ai_recognize',
           createdAt: DateTime.now(),
         ),
-        consumptions: result.colorConsumptions.entries.map((e) => PatternConsumptionItem(
-          id: 0,
-          patternId: patternId,
-          colorId: e.key,
-          quantity: e.value,
-        )).toList(),
+        consumptions: result.colorConsumptions.entries
+            .map((e) => PatternConsumptionItem(
+                  id: 0,
+                  patternId: patternId,
+                  colorId: e.key,
+                  quantity: e.value,
+                ))
+            .toList(),
       );
 
       // Check low stock
       final threshold = ref.read(userSettingsProvider).lowStockThreshold;
-      final lowStock = await inventoryService.getLowStockColors(threshold: threshold);
+      final lowStock =
+          await inventoryService.getLowStockColors(threshold: threshold);
 
       if (!mounted) return;
       if (lowStock.isNotEmpty) {
@@ -416,7 +448,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('库存提示'),
-            content: Text('扣除后，有 ${lowStock.length} 种色号库存不足 $threshold 颗，请注意补货。'),
+            content:
+                Text('扣除后，有 ${lowStock.length} 种色号库存不足 $threshold 颗，请注意补货。'),
             actions: [
               FilledButton(
                 onPressed: () {
@@ -437,7 +470,8 @@ class _RecognitionResultPageState extends ConsumerState<RecognitionResultPage> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('库存扣除成功！'), backgroundColor: AppColors.success),
+          const SnackBar(
+              content: Text('库存扣除成功！'), backgroundColor: AppColors.success),
         );
         context.go('/patterns');
       }
@@ -478,7 +512,8 @@ class _GridPreviewPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _GridPreviewPainter oldDelegate) => oldDelegate.grid != grid;
+  bool shouldRepaint(covariant _GridPreviewPainter oldDelegate) =>
+      oldDelegate.grid != grid;
 }
 
 class _StatItem extends StatelessWidget {
@@ -490,7 +525,8 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
       ],
     );

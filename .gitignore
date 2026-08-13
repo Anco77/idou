@@ -5,3 +5,22 @@ build/
 *.zip
 *.jks
 *.keystore
+
+# Flutter/Dart generated caches and local tool state.
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+
+# IDE and platform-local state.
+.idea/
+*.iml
+android/.gradle/
+android/local.properties
+windows/flutter/ephemeral/
+
+# Local reports and temporary artifacts.
+coverage/
+*.log
+*.tmp

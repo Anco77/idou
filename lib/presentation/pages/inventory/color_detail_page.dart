@@ -15,6 +15,24 @@ class ColorDetailPage extends ConsumerWidget {
     final logsAsync = ref.watch(colorLogsProvider(colorId));
     final item = state.items.where((i) => i.colorId == colorId).firstOrNull;
 
+    if (state.isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text('#${colorId.toString().padLeft(3, '0')}')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (state.error != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text('#${colorId.toString().padLeft(3, '0')}')),
+        body: Center(
+          child: FilledButton.icon(
+            onPressed: notifier.loadInventory,
+            icon: const Icon(Icons.refresh),
+            label: const Text('加载失败，点击重试'),
+          ),
+        ),
+      );
+    }
     if (item == null) {
       return Scaffold(
         appBar: AppBar(title: Text('#${colorId.toString().padLeft(3, '0')}')),
@@ -61,7 +79,9 @@ class ColorDetailPage extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 48,
                     fontWeight: FontWeight.bold,
-                    color: item.isLowStock ? Colors.red : Colors.black87,
+                    color: item.isLowStockAt(state.lowStockThreshold)
+                        ? Colors.red
+                        : Colors.black87,
                   ),
                 ),
                 Text('当前库存（颗）', style: TextStyle(color: Colors.grey[600])),
@@ -76,7 +96,8 @@ class ColorDetailPage extends ConsumerWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    final qty = await QuantitySelector.show(context, title: '消耗数量');
+                    final qty =
+                        await QuantitySelector.show(context, title: '消耗数量');
                     if (qty == null || !context.mounted) return;
                     final success = await notifier.consume(colorId, qty);
                     if (!success && context.mounted) {
@@ -97,7 +118,8 @@ class ColorDetailPage extends ConsumerWidget {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: () async {
-                    final qty = await QuantitySelector.show(context, title: '补货数量');
+                    final qty =
+                        await QuantitySelector.show(context, title: '补货数量');
                     if (qty == null || !context.mounted) return;
                     await notifier.restock(colorId, qty);
                   },
@@ -119,7 +141,8 @@ class ColorDetailPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('颜色信息', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('颜色信息',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   _InfoRow('色号', item.mardId),
                   _InfoRow('名称', item.colorName),
@@ -138,7 +161,8 @@ class ColorDetailPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('操作记录', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('操作记录',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   logsAsync.when(
                     data: (logs) {
@@ -146,7 +170,8 @@ class ColorDetailPage extends ConsumerWidget {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
                           child: Center(
-                            child: Text('暂无操作记录', style: TextStyle(color: Colors.grey)),
+                            child: Text('暂无操作记录',
+                                style: TextStyle(color: Colors.grey)),
                           ),
                         );
                       }
@@ -160,7 +185,8 @@ class ColorDetailPage extends ConsumerWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     ),
-                    error: (e, _) => Text('加载失败', style: TextStyle(color: Colors.red[400])),
+                    error: (e, _) =>
+                        Text('加载失败', style: TextStyle(color: Colors.red[400])),
                   ),
                 ],
               ),

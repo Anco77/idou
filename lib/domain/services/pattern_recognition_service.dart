@@ -65,9 +65,10 @@ class PatternRecognitionService {
     img.Image processed = image;
 
     if (processed.width > maxSize || processed.height > maxSize) {
-      final scale = maxSize / (processed.width > processed.height
-          ? processed.width
-          : processed.height);
+      final scale = maxSize /
+          (processed.width > processed.height
+              ? processed.width
+              : processed.height);
       processed = img.copyResize(processed,
           width: (processed.width * scale).round(),
           height: (processed.height * scale).round());

@@ -12,19 +12,27 @@ _StockLevel _stockLevel(int qty) {
 
 Color _stockColor(_StockLevel level) {
   switch (level) {
-    case _StockLevel.critical: return const Color(0xFFE53935);
-    case _StockLevel.low: return const Color(0xFFFB8C00);
-    case _StockLevel.medium: return const Color(0xFFFDD835);
-    case _StockLevel.sufficient: return const Color(0xFF43A047);
+    case _StockLevel.critical:
+      return const Color(0xFFE53935);
+    case _StockLevel.low:
+      return const Color(0xFFFB8C00);
+    case _StockLevel.medium:
+      return const Color(0xFFFDD835);
+    case _StockLevel.sufficient:
+      return const Color(0xFF43A047);
   }
 }
 
 String _stockLabel(_StockLevel level) {
   switch (level) {
-    case _StockLevel.critical: return '紧缺';
-    case _StockLevel.low: return '较少';
-    case _StockLevel.medium: return '适中';
-    case _StockLevel.sufficient: return '充足';
+    case _StockLevel.critical:
+      return '紧缺';
+    case _StockLevel.low:
+      return '较少';
+    case _StockLevel.medium:
+      return '适中';
+    case _StockLevel.sufficient:
+      return '充足';
   }
 }
 
@@ -53,7 +61,9 @@ class ColorCard extends StatelessWidget {
     final displayQty = showConsumption ? item.totalConsumed : item.currentQty;
     final unitText = showConsumption ? '消耗' : '颗';
     final ratio = (displayQty / 1000).clamp(0.0, 1.0);
-    final barColor = showConsumption ? const Color(0xFF7E57C2) : _stockColor(_stockLevel(item.currentQty));
+    final barColor = showConsumption
+        ? const Color(0xFF7E57C2)
+        : _stockColor(_stockLevel(item.currentQty));
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -119,7 +129,8 @@ class ColorCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(3),
                                     child: Container(
@@ -149,7 +160,8 @@ class ColorCard extends StatelessWidget {
                                     children: [
                                       Flexible(
                                         child: Text(
-                                          _stockLabel(_stockLevel(item.currentQty)),
+                                          _stockLabel(
+                                              _stockLevel(item.currentQty)),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -160,7 +172,8 @@ class ColorCard extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      if (_stockLevel(item.currentQty) == _StockLevel.critical) ...[
+                                      if (_stockLevel(item.currentQty) ==
+                                          _StockLevel.critical) ...[
                                         const SizedBox(width: 4),
                                         const Icon(Icons.warning_amber_rounded,
                                             color: Colors.amber, size: 16),
@@ -181,20 +194,25 @@ class ColorCard extends StatelessWidget {
                                           fontWeight: FontWeight.bold,
                                           color: Colors.white,
                                           shadows: const [
-                                            Shadow(color: Colors.black54, blurRadius: 6),
+                                            Shadow(
+                                                color: Colors.black54,
+                                                blurRadius: 6),
                                           ],
                                         ),
                                       ),
                                       const SizedBox(width: 2),
                                       Padding(
-                                        padding: const EdgeInsets.only(bottom: 2),
+                                        padding:
+                                            const EdgeInsets.only(bottom: 2),
                                         child: Text(
                                           unitText,
                                           style: TextStyle(
                                             fontSize: fontSizeUnit,
                                             color: Colors.white70,
                                             shadows: const [
-                                              Shadow(color: Colors.black54, blurRadius: 4),
+                                              Shadow(
+                                                  color: Colors.black54,
+                                                  blurRadius: 4),
                                             ],
                                           ),
                                         ),
@@ -285,7 +303,8 @@ class _ActionButtonState extends State<_ActionButton> {
               color: Colors.white24,
               shape: BoxShape.circle,
             ),
-            child: Icon(widget.icon, size: widget.iconSize, color: Colors.white),
+            child:
+                Icon(widget.icon, size: widget.iconSize, color: Colors.white),
           ),
         ),
       ),

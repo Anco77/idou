@@ -1,0 +1,5 @@
+interface:
+  display_name: "idou 数据一致性"
+  short_description: "确保库存图纸媒体文件数据库迁移与事务操作始终保持一致"
+  default_prompt: "Use $idou-data-integrity to implement a safe idou data or transaction change."
+

@@ -5,7 +5,6 @@ import '../../common/low_stock_banner.dart';
 import '../../common/update_dialog.dart';
 import '../../providers/inventory_providers.dart';
 import '../../providers/patterns_providers.dart';
-import '../../providers/settings_providers.dart';
 import '../../../core/services/app_update_service.dart';
 import '../../providers/update_providers.dart';
 import '../../theme/app_colors.dart';
@@ -40,6 +39,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final homeState = ref.watch(homeStateProvider);
+    final inventoryState = ref.watch(inventoryStateProvider);
     final inventoryNotifier = ref.read(inventoryStateProvider.notifier);
 
     return Scaffold(
@@ -48,20 +48,30 @@ class _HomePageState extends ConsumerState<HomePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.read(homeStateProvider.notifier).loadHomeData(),
+            onPressed: () async {
+              await Future.wait([
+                ref.read(homeStateProvider.notifier).loadHomeData(),
+                inventoryNotifier.loadInventory(),
+              ]);
+            },
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(homeStateProvider.notifier).loadHomeData(),
+        onRefresh: () async {
+          await Future.wait([
+            ref.read(homeStateProvider.notifier).loadHomeData(),
+            inventoryNotifier.loadInventory(),
+          ]);
+        },
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             // 低量预警横幅
             LowStockBanner(
-              count: homeState.lowStockCount,
-              total: homeState.totalColors,
-              threshold: ref.read(userSettingsProvider).lowStockThreshold,
+              count: inventoryState.lowStockItems.length,
+              total: inventoryState.items.length,
+              threshold: inventoryState.lowStockThreshold,
               onTap: () {
                 inventoryNotifier.setSortMode(InventorySortMode.byRemaining);
                 context.go('/inventory');
@@ -78,7 +88,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   children: [
                     const Text(
                       '库存概况',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -86,22 +97,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                         _StatItem(
                           icon: Icons.palette_outlined,
                           label: '色号总数',
-                          value: '${homeState.totalColors}',
+                          value: '${inventoryState.items.length}',
                           color: AppColors.primary,
                         ),
                         const SizedBox(width: 16),
                         _StatItem(
                           icon: Icons.inventory_outlined,
                           label: '库存总量',
-                          value: '${homeState.totalBeads}',
+                          value:
+                              '${inventoryState.items.fold<int>(0, (sum, item) => sum + item.currentQty)}',
                           color: AppColors.info,
                         ),
                         const SizedBox(width: 16),
                         _StatItem(
                           icon: Icons.warning_amber_rounded,
-                          label: '不足500',
-                          value: '${homeState.lowStockCount}',
-                          color: homeState.lowStockCount > 0
+                          label: '不足${inventoryState.lowStockThreshold}',
+                          value: '${inventoryState.lowStockItems.length}',
+                          color: inventoryState.lowStockItems.isNotEmpty
                               ? AppColors.warning
                               : AppColors.success,
                         ),
@@ -122,7 +134,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   children: [
                     const Text(
                       '快速操作',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -160,27 +173,35 @@ class _HomePageState extends ConsumerState<HomePage> {
                   children: [
                     const Text(
                       '最近图纸',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     if (homeState.recentPatterns.isEmpty)
                       const Padding(
                         padding: EdgeInsets.all(24),
                         child: Center(
-                          child: Text('暂无图纸记录', style: TextStyle(color: Colors.grey)),
+                          child: Text('暂无图纸记录',
+                              style: TextStyle(color: Colors.grey)),
                         ),
                       )
                     else
                       ...homeState.recentPatterns.map((p) => ListTile(
-                        leading: const Icon(Icons.image_outlined),
-                        title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(p.uploadTime.toString().substring(0, 10)),
-                        trailing: Icon(
-                          p.isCompleted ? Icons.check_circle : Icons.pending,
-                          color: p.isCompleted ? AppColors.success : Colors.orange,
-                        ),
-                        onTap: () => context.go('/patterns/detail/${p.id}'),
-                      )),
+                            leading: const Icon(Icons.image_outlined),
+                            title: Text(p.title,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle:
+                                Text(p.uploadTime.toString().substring(0, 10)),
+                            trailing: Icon(
+                              p.isCompleted
+                                  ? Icons.check_circle
+                                  : Icons.pending,
+                              color: p.isCompleted
+                                  ? AppColors.success
+                                  : Colors.orange,
+                            ),
+                            onTap: () => context.go('/patterns/detail/${p.id}'),
+                          )),
                   ],
                 ),
               ),
@@ -212,9 +233,12 @@ class _StatItem extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 28),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(
-            fontSize: 20, fontWeight: FontWeight.bold, color: color,
-          )),
+          Text(value,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              )),
           Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ),

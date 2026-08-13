@@ -9,7 +9,8 @@ final currentVersionProvider = FutureProvider<String>((ref) {
   return ref.watch(appUpdateServiceProvider).getCurrentVersion();
 });
 
-final updateCheckProvider = FutureProvider.autoDispose<UpdateCheckResult>((ref) {
+final updateCheckProvider =
+    FutureProvider.autoDispose<UpdateCheckResult>((ref) {
   return ref.watch(appUpdateServiceProvider).checkForUpdate();
 });
 

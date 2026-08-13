@@ -655,6 +655,53 @@ class $PatternsTable extends Patterns with TableInfo<$PatternsTable, Pattern> {
       type: DriftSqlType.dateTime,
       requiredDuringInsert: false,
       defaultValue: currentDateAndTime);
+  static const VerificationMeta _paletteIdMeta =
+      const VerificationMeta('paletteId');
+  @override
+  late final GeneratedColumn<String> paletteId = GeneratedColumn<String>(
+      'palette_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _rowsMeta = const VerificationMeta('rows');
+  @override
+  late final GeneratedColumn<int> rows = GeneratedColumn<int>(
+      'rows', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _colsMeta = const VerificationMeta('cols');
+  @override
+  late final GeneratedColumn<int> cols = GeneratedColumn<int>(
+      'cols', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _gridMeta = const VerificationMeta('grid');
+  @override
+  late final GeneratedColumn<String> grid = GeneratedColumn<String>(
+      'grid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _inventoryDeductedMeta =
+      const VerificationMeta('inventoryDeducted');
+  @override
+  late final GeneratedColumn<bool> inventoryDeducted = GeneratedColumn<bool>(
+      'inventory_deducted', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("inventory_deducted" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _previewImageMeta =
+      const VerificationMeta('previewImage');
+  @override
+  late final GeneratedColumn<String> previewImage = GeneratedColumn<String>(
+      'preview_image', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _recognitionSummaryMeta =
+      const VerificationMeta('recognitionSummary');
+  @override
+  late final GeneratedColumn<String> recognitionSummary =
+      GeneratedColumn<String>('recognition_summary', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -665,7 +712,14 @@ class $PatternsTable extends Patterns with TableInfo<$PatternsTable, Pattern> {
         completePhotos,
         status,
         source,
-        createdAt
+        createdAt,
+        paletteId,
+        rows,
+        cols,
+        grid,
+        inventoryDeducted,
+        previewImage,
+        recognitionSummary
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -730,6 +784,40 @@ class $PatternsTable extends Patterns with TableInfo<$PatternsTable, Pattern> {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
     }
+    if (data.containsKey('palette_id')) {
+      context.handle(_paletteIdMeta,
+          paletteId.isAcceptableOrUnknown(data['palette_id']!, _paletteIdMeta));
+    }
+    if (data.containsKey('rows')) {
+      context.handle(
+          _rowsMeta, rows.isAcceptableOrUnknown(data['rows']!, _rowsMeta));
+    }
+    if (data.containsKey('cols')) {
+      context.handle(
+          _colsMeta, cols.isAcceptableOrUnknown(data['cols']!, _colsMeta));
+    }
+    if (data.containsKey('grid')) {
+      context.handle(
+          _gridMeta, grid.isAcceptableOrUnknown(data['grid']!, _gridMeta));
+    }
+    if (data.containsKey('inventory_deducted')) {
+      context.handle(
+          _inventoryDeductedMeta,
+          inventoryDeducted.isAcceptableOrUnknown(
+              data['inventory_deducted']!, _inventoryDeductedMeta));
+    }
+    if (data.containsKey('preview_image')) {
+      context.handle(
+          _previewImageMeta,
+          previewImage.isAcceptableOrUnknown(
+              data['preview_image']!, _previewImageMeta));
+    }
+    if (data.containsKey('recognition_summary')) {
+      context.handle(
+          _recognitionSummaryMeta,
+          recognitionSummary.isAcceptableOrUnknown(
+              data['recognition_summary']!, _recognitionSummaryMeta));
+    }
     return context;
   }
 
@@ -757,6 +845,20 @@ class $PatternsTable extends Patterns with TableInfo<$PatternsTable, Pattern> {
           .read(DriftSqlType.string, data['${effectivePrefix}source'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      paletteId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}palette_id']),
+      rows: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}rows'])!,
+      cols: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}cols'])!,
+      grid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}grid']),
+      inventoryDeducted: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}inventory_deducted'])!,
+      previewImage: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}preview_image']),
+      recognitionSummary: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}recognition_summary']),
     );
   }
 
@@ -776,6 +878,13 @@ class Pattern extends DataClass implements Insertable<Pattern> {
   final String status;
   final String source;
   final DateTime createdAt;
+  final String? paletteId;
+  final int rows;
+  final int cols;
+  final String? grid;
+  final bool inventoryDeducted;
+  final String? previewImage;
+  final String? recognitionSummary;
   const Pattern(
       {required this.id,
       required this.title,
@@ -785,7 +894,14 @@ class Pattern extends DataClass implements Insertable<Pattern> {
       this.completePhotos,
       required this.status,
       required this.source,
-      required this.createdAt});
+      required this.createdAt,
+      this.paletteId,
+      required this.rows,
+      required this.cols,
+      this.grid,
+      required this.inventoryDeducted,
+      this.previewImage,
+      this.recognitionSummary});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -802,6 +918,21 @@ class Pattern extends DataClass implements Insertable<Pattern> {
     map['status'] = Variable<String>(status);
     map['source'] = Variable<String>(source);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || paletteId != null) {
+      map['palette_id'] = Variable<String>(paletteId);
+    }
+    map['rows'] = Variable<int>(rows);
+    map['cols'] = Variable<int>(cols);
+    if (!nullToAbsent || grid != null) {
+      map['grid'] = Variable<String>(grid);
+    }
+    map['inventory_deducted'] = Variable<bool>(inventoryDeducted);
+    if (!nullToAbsent || previewImage != null) {
+      map['preview_image'] = Variable<String>(previewImage);
+    }
+    if (!nullToAbsent || recognitionSummary != null) {
+      map['recognition_summary'] = Variable<String>(recognitionSummary);
+    }
     return map;
   }
 
@@ -820,6 +951,19 @@ class Pattern extends DataClass implements Insertable<Pattern> {
       status: Value(status),
       source: Value(source),
       createdAt: Value(createdAt),
+      paletteId: paletteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paletteId),
+      rows: Value(rows),
+      cols: Value(cols),
+      grid: grid == null && nullToAbsent ? const Value.absent() : Value(grid),
+      inventoryDeducted: Value(inventoryDeducted),
+      previewImage: previewImage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(previewImage),
+      recognitionSummary: recognitionSummary == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recognitionSummary),
     );
   }
 
@@ -836,6 +980,14 @@ class Pattern extends DataClass implements Insertable<Pattern> {
       status: serializer.fromJson<String>(json['status']),
       source: serializer.fromJson<String>(json['source']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      paletteId: serializer.fromJson<String?>(json['paletteId']),
+      rows: serializer.fromJson<int>(json['rows']),
+      cols: serializer.fromJson<int>(json['cols']),
+      grid: serializer.fromJson<String?>(json['grid']),
+      inventoryDeducted: serializer.fromJson<bool>(json['inventoryDeducted']),
+      previewImage: serializer.fromJson<String?>(json['previewImage']),
+      recognitionSummary:
+          serializer.fromJson<String?>(json['recognitionSummary']),
     );
   }
   @override
@@ -851,6 +1003,13 @@ class Pattern extends DataClass implements Insertable<Pattern> {
       'status': serializer.toJson<String>(status),
       'source': serializer.toJson<String>(source),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'paletteId': serializer.toJson<String?>(paletteId),
+      'rows': serializer.toJson<int>(rows),
+      'cols': serializer.toJson<int>(cols),
+      'grid': serializer.toJson<String?>(grid),
+      'inventoryDeducted': serializer.toJson<bool>(inventoryDeducted),
+      'previewImage': serializer.toJson<String?>(previewImage),
+      'recognitionSummary': serializer.toJson<String?>(recognitionSummary),
     };
   }
 
@@ -863,7 +1022,14 @@ class Pattern extends DataClass implements Insertable<Pattern> {
           Value<String?> completePhotos = const Value.absent(),
           String? status,
           String? source,
-          DateTime? createdAt}) =>
+          DateTime? createdAt,
+          Value<String?> paletteId = const Value.absent(),
+          int? rows,
+          int? cols,
+          Value<String?> grid = const Value.absent(),
+          bool? inventoryDeducted,
+          Value<String?> previewImage = const Value.absent(),
+          Value<String?> recognitionSummary = const Value.absent()}) =>
       Pattern(
         id: id ?? this.id,
         title: title ?? this.title,
@@ -876,6 +1042,16 @@ class Pattern extends DataClass implements Insertable<Pattern> {
         status: status ?? this.status,
         source: source ?? this.source,
         createdAt: createdAt ?? this.createdAt,
+        paletteId: paletteId.present ? paletteId.value : this.paletteId,
+        rows: rows ?? this.rows,
+        cols: cols ?? this.cols,
+        grid: grid.present ? grid.value : this.grid,
+        inventoryDeducted: inventoryDeducted ?? this.inventoryDeducted,
+        previewImage:
+            previewImage.present ? previewImage.value : this.previewImage,
+        recognitionSummary: recognitionSummary.present
+            ? recognitionSummary.value
+            : this.recognitionSummary,
       );
   Pattern copyWithCompanion(PatternsCompanion data) {
     return Pattern(
@@ -895,6 +1071,19 @@ class Pattern extends DataClass implements Insertable<Pattern> {
       status: data.status.present ? data.status.value : this.status,
       source: data.source.present ? data.source.value : this.source,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      paletteId: data.paletteId.present ? data.paletteId.value : this.paletteId,
+      rows: data.rows.present ? data.rows.value : this.rows,
+      cols: data.cols.present ? data.cols.value : this.cols,
+      grid: data.grid.present ? data.grid.value : this.grid,
+      inventoryDeducted: data.inventoryDeducted.present
+          ? data.inventoryDeducted.value
+          : this.inventoryDeducted,
+      previewImage: data.previewImage.present
+          ? data.previewImage.value
+          : this.previewImage,
+      recognitionSummary: data.recognitionSummary.present
+          ? data.recognitionSummary.value
+          : this.recognitionSummary,
     );
   }
 
@@ -909,14 +1098,36 @@ class Pattern extends DataClass implements Insertable<Pattern> {
           ..write('completePhotos: $completePhotos, ')
           ..write('status: $status, ')
           ..write('source: $source, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('paletteId: $paletteId, ')
+          ..write('rows: $rows, ')
+          ..write('cols: $cols, ')
+          ..write('grid: $grid, ')
+          ..write('inventoryDeducted: $inventoryDeducted, ')
+          ..write('previewImage: $previewImage, ')
+          ..write('recognitionSummary: $recognitionSummary')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, originalImage, uploadTime,
-      completeTime, completePhotos, status, source, createdAt);
+  int get hashCode => Object.hash(
+      id,
+      title,
+      originalImage,
+      uploadTime,
+      completeTime,
+      completePhotos,
+      status,
+      source,
+      createdAt,
+      paletteId,
+      rows,
+      cols,
+      grid,
+      inventoryDeducted,
+      previewImage,
+      recognitionSummary);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -929,7 +1140,14 @@ class Pattern extends DataClass implements Insertable<Pattern> {
           other.completePhotos == this.completePhotos &&
           other.status == this.status &&
           other.source == this.source &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.paletteId == this.paletteId &&
+          other.rows == this.rows &&
+          other.cols == this.cols &&
+          other.grid == this.grid &&
+          other.inventoryDeducted == this.inventoryDeducted &&
+          other.previewImage == this.previewImage &&
+          other.recognitionSummary == this.recognitionSummary);
 }
 
 class PatternsCompanion extends UpdateCompanion<Pattern> {
@@ -942,6 +1160,13 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
   final Value<String> status;
   final Value<String> source;
   final Value<DateTime> createdAt;
+  final Value<String?> paletteId;
+  final Value<int> rows;
+  final Value<int> cols;
+  final Value<String?> grid;
+  final Value<bool> inventoryDeducted;
+  final Value<String?> previewImage;
+  final Value<String?> recognitionSummary;
   final Value<int> rowid;
   const PatternsCompanion({
     this.id = const Value.absent(),
@@ -953,6 +1178,13 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
     this.status = const Value.absent(),
     this.source = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.paletteId = const Value.absent(),
+    this.rows = const Value.absent(),
+    this.cols = const Value.absent(),
+    this.grid = const Value.absent(),
+    this.inventoryDeducted = const Value.absent(),
+    this.previewImage = const Value.absent(),
+    this.recognitionSummary = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PatternsCompanion.insert({
@@ -965,6 +1197,13 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
     this.status = const Value.absent(),
     required String source,
     this.createdAt = const Value.absent(),
+    this.paletteId = const Value.absent(),
+    this.rows = const Value.absent(),
+    this.cols = const Value.absent(),
+    this.grid = const Value.absent(),
+    this.inventoryDeducted = const Value.absent(),
+    this.previewImage = const Value.absent(),
+    this.recognitionSummary = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         title = Value(title),
@@ -981,6 +1220,13 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
     Expression<String>? status,
     Expression<String>? source,
     Expression<DateTime>? createdAt,
+    Expression<String>? paletteId,
+    Expression<int>? rows,
+    Expression<int>? cols,
+    Expression<String>? grid,
+    Expression<bool>? inventoryDeducted,
+    Expression<String>? previewImage,
+    Expression<String>? recognitionSummary,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -993,6 +1239,13 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
       if (status != null) 'status': status,
       if (source != null) 'source': source,
       if (createdAt != null) 'created_at': createdAt,
+      if (paletteId != null) 'palette_id': paletteId,
+      if (rows != null) 'rows': rows,
+      if (cols != null) 'cols': cols,
+      if (grid != null) 'grid': grid,
+      if (inventoryDeducted != null) 'inventory_deducted': inventoryDeducted,
+      if (previewImage != null) 'preview_image': previewImage,
+      if (recognitionSummary != null) 'recognition_summary': recognitionSummary,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1007,6 +1260,13 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
       Value<String>? status,
       Value<String>? source,
       Value<DateTime>? createdAt,
+      Value<String?>? paletteId,
+      Value<int>? rows,
+      Value<int>? cols,
+      Value<String?>? grid,
+      Value<bool>? inventoryDeducted,
+      Value<String?>? previewImage,
+      Value<String?>? recognitionSummary,
       Value<int>? rowid}) {
     return PatternsCompanion(
       id: id ?? this.id,
@@ -1018,6 +1278,13 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
       status: status ?? this.status,
       source: source ?? this.source,
       createdAt: createdAt ?? this.createdAt,
+      paletteId: paletteId ?? this.paletteId,
+      rows: rows ?? this.rows,
+      cols: cols ?? this.cols,
+      grid: grid ?? this.grid,
+      inventoryDeducted: inventoryDeducted ?? this.inventoryDeducted,
+      previewImage: previewImage ?? this.previewImage,
+      recognitionSummary: recognitionSummary ?? this.recognitionSummary,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1052,6 +1319,27 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (paletteId.present) {
+      map['palette_id'] = Variable<String>(paletteId.value);
+    }
+    if (rows.present) {
+      map['rows'] = Variable<int>(rows.value);
+    }
+    if (cols.present) {
+      map['cols'] = Variable<int>(cols.value);
+    }
+    if (grid.present) {
+      map['grid'] = Variable<String>(grid.value);
+    }
+    if (inventoryDeducted.present) {
+      map['inventory_deducted'] = Variable<bool>(inventoryDeducted.value);
+    }
+    if (previewImage.present) {
+      map['preview_image'] = Variable<String>(previewImage.value);
+    }
+    if (recognitionSummary.present) {
+      map['recognition_summary'] = Variable<String>(recognitionSummary.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1070,6 +1358,13 @@ class PatternsCompanion extends UpdateCompanion<Pattern> {
           ..write('status: $status, ')
           ..write('source: $source, ')
           ..write('createdAt: $createdAt, ')
+          ..write('paletteId: $paletteId, ')
+          ..write('rows: $rows, ')
+          ..write('cols: $cols, ')
+          ..write('grid: $grid, ')
+          ..write('inventoryDeducted: $inventoryDeducted, ')
+          ..write('previewImage: $previewImage, ')
+          ..write('recognitionSummary: $recognitionSummary, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2433,6 +2728,13 @@ typedef $$PatternsTableCreateCompanionBuilder = PatternsCompanion Function({
   Value<String> status,
   required String source,
   Value<DateTime> createdAt,
+  Value<String?> paletteId,
+  Value<int> rows,
+  Value<int> cols,
+  Value<String?> grid,
+  Value<bool> inventoryDeducted,
+  Value<String?> previewImage,
+  Value<String?> recognitionSummary,
   Value<int> rowid,
 });
 typedef $$PatternsTableUpdateCompanionBuilder = PatternsCompanion Function({
@@ -2445,6 +2747,13 @@ typedef $$PatternsTableUpdateCompanionBuilder = PatternsCompanion Function({
   Value<String> status,
   Value<String> source,
   Value<DateTime> createdAt,
+  Value<String?> paletteId,
+  Value<int> rows,
+  Value<int> cols,
+  Value<String?> grid,
+  Value<bool> inventoryDeducted,
+  Value<String?> previewImage,
+  Value<String?> recognitionSummary,
   Value<int> rowid,
 });
 
@@ -2522,6 +2831,29 @@ class $$PatternsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get paletteId => $composableBuilder(
+      column: $table.paletteId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get rows => $composableBuilder(
+      column: $table.rows, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get cols => $composableBuilder(
+      column: $table.cols, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get grid => $composableBuilder(
+      column: $table.grid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get inventoryDeducted => $composableBuilder(
+      column: $table.inventoryDeducted,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get previewImage => $composableBuilder(
+      column: $table.previewImage, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get recognitionSummary => $composableBuilder(
+      column: $table.recognitionSummary,
+      builder: (column) => ColumnFilters(column));
 
   Expression<bool> inventoryLogsRefs(
       Expression<bool> Function($$InventoryLogsTableFilterComposer f) f) {
@@ -2604,6 +2936,30 @@ class $$PatternsTableOrderingComposer
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get paletteId => $composableBuilder(
+      column: $table.paletteId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get rows => $composableBuilder(
+      column: $table.rows, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get cols => $composableBuilder(
+      column: $table.cols, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get grid => $composableBuilder(
+      column: $table.grid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get inventoryDeducted => $composableBuilder(
+      column: $table.inventoryDeducted,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get previewImage => $composableBuilder(
+      column: $table.previewImage,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get recognitionSummary => $composableBuilder(
+      column: $table.recognitionSummary,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$PatternsTableAnnotationComposer
@@ -2641,6 +2997,27 @@ class $$PatternsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get paletteId =>
+      $composableBuilder(column: $table.paletteId, builder: (column) => column);
+
+  GeneratedColumn<int> get rows =>
+      $composableBuilder(column: $table.rows, builder: (column) => column);
+
+  GeneratedColumn<int> get cols =>
+      $composableBuilder(column: $table.cols, builder: (column) => column);
+
+  GeneratedColumn<String> get grid =>
+      $composableBuilder(column: $table.grid, builder: (column) => column);
+
+  GeneratedColumn<bool> get inventoryDeducted => $composableBuilder(
+      column: $table.inventoryDeducted, builder: (column) => column);
+
+  GeneratedColumn<String> get previewImage => $composableBuilder(
+      column: $table.previewImage, builder: (column) => column);
+
+  GeneratedColumn<String> get recognitionSummary => $composableBuilder(
+      column: $table.recognitionSummary, builder: (column) => column);
 
   Expression<T> inventoryLogsRefs<T extends Object>(
       Expression<T> Function($$InventoryLogsTableAnnotationComposer a) f) {
@@ -2720,6 +3097,13 @@ class $$PatternsTableTableManager extends RootTableManager<
             Value<String> status = const Value.absent(),
             Value<String> source = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<String?> paletteId = const Value.absent(),
+            Value<int> rows = const Value.absent(),
+            Value<int> cols = const Value.absent(),
+            Value<String?> grid = const Value.absent(),
+            Value<bool> inventoryDeducted = const Value.absent(),
+            Value<String?> previewImage = const Value.absent(),
+            Value<String?> recognitionSummary = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               PatternsCompanion(
@@ -2732,6 +3116,13 @@ class $$PatternsTableTableManager extends RootTableManager<
             status: status,
             source: source,
             createdAt: createdAt,
+            paletteId: paletteId,
+            rows: rows,
+            cols: cols,
+            grid: grid,
+            inventoryDeducted: inventoryDeducted,
+            previewImage: previewImage,
+            recognitionSummary: recognitionSummary,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2744,6 +3135,13 @@ class $$PatternsTableTableManager extends RootTableManager<
             Value<String> status = const Value.absent(),
             required String source,
             Value<DateTime> createdAt = const Value.absent(),
+            Value<String?> paletteId = const Value.absent(),
+            Value<int> rows = const Value.absent(),
+            Value<int> cols = const Value.absent(),
+            Value<String?> grid = const Value.absent(),
+            Value<bool> inventoryDeducted = const Value.absent(),
+            Value<String?> previewImage = const Value.absent(),
+            Value<String?> recognitionSummary = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               PatternsCompanion.insert(
@@ -2756,6 +3154,13 @@ class $$PatternsTableTableManager extends RootTableManager<
             status: status,
             source: source,
             createdAt: createdAt,
+            paletteId: paletteId,
+            rows: rows,
+            cols: cols,
+            grid: grid,
+            inventoryDeducted: inventoryDeducted,
+            previewImage: previewImage,
+            recognitionSummary: recognitionSummary,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

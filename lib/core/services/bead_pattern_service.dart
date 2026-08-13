@@ -39,7 +39,8 @@ class BeadPatternService {
     final image = img.decodeImage(bytes);
     if (image == null) throw Exception('无法解码图像');
 
-    final cropped = img.copyCrop(image, x: cropX, y: cropY, width: cropW, height: cropH);
+    final cropped =
+        img.copyCrop(image, x: cropX, y: cropY, width: cropW, height: cropH);
     final processed = _preprocess(cropped);
     final rawPixels = processed.getBytes(order: img.ChannelOrder.rgba);
     final pixels = Uint8List.fromList(rawPixels);
@@ -50,7 +51,8 @@ class BeadPatternService {
     final cellH = h / gridRows;
 
     final grid = List<List<StandardColor?>>.generate(
-      gridRows, (_) => List<StandardColor?>.filled(gridCols, null),
+      gridRows,
+      (_) => List<StandardColor?>.filled(gridCols, null),
     );
     final colorCounts = <int, int>{};
 
@@ -62,7 +64,7 @@ class BeadPatternService {
         final y1 = ((row + 1) * cellH).round();
 
         final rgbs = _samplePixels(pixels, w, h, x0, y0, x1 - x0, y1 - y0);
-        if (rgbs.isEmpty) continue;
+        if (_isBlankCell(rgbs)) continue;
 
         final color = _colorMatcher.gridMatchDominant(rgbs);
         grid[row][col] = color;
@@ -70,7 +72,8 @@ class BeadPatternService {
       }
     }
 
-    return _buildResult(imagePath, grid, gridCols, gridRows, colorCounts, mergeThreshold);
+    return _buildResult(
+        imagePath, grid, gridCols, gridRows, colorCounts, mergeThreshold);
   }
 
   Future<PatternRecognitionResult> processWithOcr({
@@ -88,12 +91,22 @@ class BeadPatternService {
     final image = img.decodeImage(bytes);
     if (image == null) throw Exception('无法解码图像');
     final cropped = img.copyCrop(
-      image, x: cropX, y: cropY, width: cropW, height: cropH,
+      image,
+      x: cropX,
+      y: cropY,
+      width: cropW,
+      height: cropH,
     );
 
     final ocrService = OcrService();
     final ocrResults = await ocrService.recognizeMardIds(
-      imagePath, cropX, cropY, cropW, cropH, gridCols, gridRows,
+      imagePath,
+      cropX,
+      cropY,
+      cropW,
+      cropH,
+      gridCols,
+      gridRows,
     );
 
     final ocrGrid = <int, int>{};
@@ -113,7 +126,8 @@ class BeadPatternService {
     final cellH = h / gridRows;
 
     final grid = List<List<StandardColor?>>.generate(
-      gridRows, (_) => List<StandardColor?>.filled(gridCols, null),
+      gridRows,
+      (_) => List<StandardColor?>.filled(gridCols, null),
     );
     final colorCounts = <int, int>{};
 
@@ -126,8 +140,7 @@ class BeadPatternService {
           final color = _colorMatcher.getStandardById(ocrColorId);
           if (color != null) {
             grid[row][col] = color;
-            colorCounts[ocrColorId] =
-                (colorCounts[ocrColorId] ?? 0) + 1;
+            colorCounts[ocrColorId] = (colorCounts[ocrColorId] ?? 0) + 1;
             continue;
           }
         }
@@ -137,23 +150,34 @@ class BeadPatternService {
         final x1 = ((col + 1) * cellW).round();
         final y1 = ((row + 1) * cellH).round();
         final rgbs = _samplePixels(
-          pixels, w, h, x0, y0, x1 - x0, y1 - y0,
+          pixels,
+          w,
+          h,
+          x0,
+          y0,
+          x1 - x0,
+          y1 - y0,
         );
-        if (rgbs.isEmpty) continue;
+        if (_isBlankCell(rgbs)) continue;
 
         final color = _colorMatcher.gridMatchDominant(rgbs);
         grid[row][col] = color;
-        colorCounts[color.colorId] =
-            (colorCounts[color.colorId] ?? 0) + 1;
+        colorCounts[color.colorId] = (colorCounts[color.colorId] ?? 0) + 1;
       }
     }
 
     return _buildResult(
-      imagePath, grid, gridCols, gridRows, colorCounts, mergeThreshold,
+      imagePath,
+      grid,
+      gridCols,
+      gridRows,
+      colorCounts,
+      mergeThreshold,
     );
   }
 
-  PatternRecognitionResult applyMerge(PatternRecognitionResult result, double threshold) {
+  PatternRecognitionResult applyMerge(
+      PatternRecognitionResult result, double threshold) {
     if (threshold <= 0) return result;
     final grid = result.grid.map((row) => row.toList()).toList();
     final colorCounts = <int, int>{};
@@ -164,7 +188,32 @@ class BeadPatternService {
         }
       }
     }
-    return _buildResult(result.imagePath, grid, result.gridCols, result.gridRows, colorCounts, threshold);
+    return _buildResult(result.imagePath, grid, result.gridCols,
+        result.gridRows, colorCounts, threshold);
+  }
+
+  PatternRecognitionResult replaceColor(
+    PatternRecognitionResult result,
+    int row,
+    int col,
+    StandardColor? color,
+  ) {
+    if (row < 0 ||
+        row >= result.gridRows ||
+        col < 0 ||
+        col >= result.gridCols) {
+      return result;
+    }
+    final grid = result.grid.map((item) => item.toList()).toList();
+    grid[row][col] = color;
+    return _buildResult(
+      result.imagePath,
+      grid,
+      result.gridCols,
+      result.gridRows,
+      <int, int>{},
+      0,
+    );
   }
 
   PatternRecognitionResult _buildResult(
@@ -175,29 +224,43 @@ class BeadPatternService {
     Map<int, int> colorCounts,
     double mergeThreshold,
   ) {
+    if (colorCounts.isEmpty) {
+      for (final row in grid) {
+        for (final cell in row) {
+          if (cell != null) {
+            colorCounts[cell.colorId] = (colorCounts[cell.colorId] ?? 0) + 1;
+          }
+        }
+      }
+    }
     final Map<int, int> finalCounts;
     if (mergeThreshold > 0) {
-      finalCounts = _colorMatcher.mergeSimilarColors(grid, threshold: mergeThreshold);
+      finalCounts =
+          _colorMatcher.mergeSimilarColors(grid, threshold: mergeThreshold);
     } else {
       finalCounts = colorCounts;
     }
-    final filtered = Map<int, int>.fromEntries(
-      finalCounts.entries.where((e) => e.value > 2),
-    );
     return PatternRecognitionResult(
       imagePath: imagePath,
       gridCols: gridCols,
       gridRows: gridRows,
       grid: grid,
-      colorConsumptions: filtered,
+      colorConsumptions: finalCounts,
     );
   }
 
-  List<List<int>> _samplePixels(Uint8List pixels, int w, int h, int x, int y, int cellW, int cellH) {
+  List<List<int>> _samplePixels(
+      Uint8List pixels, int w, int h, int x, int y, int cellW, int cellH) {
     final result = <List<int>>[];
-    const step = 2;
-    for (int py = y; py < y + cellH && py < h; py += step) {
-      for (int px = x; px < x + cellW && px < w; px += step) {
+    final insetX = (cellW * .14).round();
+    final insetY = (cellH * .14).round();
+    final startX = x + insetX;
+    final startY = y + insetY;
+    final endX = x + cellW - insetX;
+    final endY = y + cellH - insetY;
+    final step = cellW > 24 || cellH > 24 ? 2 : 1;
+    for (int py = startY; py < endY && py < h; py += step) {
+      for (int px = startX; px < endX && px < w; px += step) {
         final idx = (py * w + px) * 4;
         if (idx + 3 >= pixels.length) continue;
         if (pixels[idx + 3] < 128) continue;
@@ -207,10 +270,27 @@ class BeadPatternService {
     return result;
   }
 
+  bool _isBlankCell(List<List<int>> rgbs) {
+    if (rgbs.isEmpty) return true;
+    var nearWhite = 0;
+    var dark = 0;
+    for (final rgb in rgbs) {
+      final maxValue = rgb.reduce((a, b) => a > b ? a : b);
+      final minValue = rgb.reduce((a, b) => a < b ? a : b);
+      if (minValue > 232 && maxValue - minValue < 18) nearWhite++;
+      if (maxValue < 150) dark++;
+    }
+    final whiteRatio = nearWhite / rgbs.length;
+    final darkRatio = dark / rgbs.length;
+    // A white printed bead has a dark label; an unused white grid cell does not.
+    return whiteRatio > .82 && darkRatio < .018;
+  }
+
   img.Image _preprocess(img.Image image) {
     const maxSize = 1200;
     if (image.width > maxSize || image.height > maxSize) {
-      final scale = maxSize / (image.width > image.height ? image.width : image.height);
+      final scale =
+          maxSize / (image.width > image.height ? image.width : image.height);
       return img.copyResize(
         image,
         width: (image.width * scale).round(),

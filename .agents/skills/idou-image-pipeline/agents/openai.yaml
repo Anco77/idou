@@ -1,0 +1,5 @@
+interface:
+  display_name: "idou 图像管线"
+  short_description: "通过标准样本和严格质量门禁开发图纸识别以及图片转换功能"
+  default_prompt: "Use $idou-image-pipeline to implement and verify the next image-pipeline task."
+

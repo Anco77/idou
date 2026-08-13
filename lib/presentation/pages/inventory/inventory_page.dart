@@ -42,7 +42,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
           LowStockBanner(
             count: state.lowStockItems.length,
             total: state.items.length,
-            threshold: ref.read(userSettingsProvider).lowStockThreshold,
+            threshold: state.lowStockThreshold,
             onTap: () {
               notifier.setSortMode(InventorySortMode.byRemaining);
             },
@@ -57,7 +57,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     );
   }
 
-  Widget _buildSearchBar(InventoryState state, InventoryStateNotifier notifier) {
+  Widget _buildSearchBar(
+      InventoryState state, InventoryStateNotifier notifier) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: TextField(
@@ -101,7 +102,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   Widget _buildStatsRow(InventoryState state) {
     final totalColors = state.items.length;
     final lowCount = state.lowStockItems.length;
-    final totalQty = state.items.fold<int>(0, (sum, item) => sum + item.currentQty);
+    final totalQty =
+        state.items.fold<int>(0, (sum, item) => sum + item.currentQty);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -122,7 +124,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     );
   }
 
-  Widget _buildToolbar(BuildContext context, WidgetRef ref, InventoryState state, InventoryStateNotifier notifier) {
+  Widget _buildToolbar(BuildContext context, WidgetRef ref,
+      InventoryState state, InventoryStateNotifier notifier) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
       child: Row(
@@ -211,7 +214,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${lowItems.length}色库存不足500颗',
+                  '${lowItems.length}色库存不足${state.lowStockThreshold}颗',
                   style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 ),
               ],
@@ -241,16 +244,33 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     );
   }
 
-  Widget _buildSeriesList(InventoryState state, InventoryStateNotifier notifier) {
+  Widget _buildSeriesList(
+      InventoryState state, InventoryStateNotifier notifier) {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.error != null) {
-      return Center(child: Text('加载失败: ${state.error}'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 8),
+            const Text('库存加载失败'),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: notifier.loadInventory,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重试'),
+            ),
+          ],
+        ),
+      );
     }
 
     // 余量/消耗排序：扁平列表
-    if (state.sortMode == InventorySortMode.byRemaining || state.sortMode == InventorySortMode.byConsumption) {
+    if (state.sortMode == InventorySortMode.byRemaining ||
+        state.sortMode == InventorySortMode.byConsumption) {
       return _buildFlatList(state);
     }
 
@@ -267,6 +287,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             _SeriesSection(
               series: series,
               items: grouped[series]!,
+              lowStockThreshold: state.lowStockThreshold,
               isExpanded: _expandedSeries.contains(series),
               onToggle: () {
                 setState(() {
@@ -277,7 +298,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                   }
                 });
               },
-              onTapItem: (item) => context.go('/inventory/detail/${item.colorId}'),
+              onTapItem: (item) =>
+                  context.go('/inventory/detail/${item.colorId}'),
               onAdd: (item) => _showRestock(context, ref, item.colorId),
               onSubtract: (item) => _showConsume(context, ref, item.colorId),
               onSetQty: (item) => _showSetQty(context, ref, item.colorId),
@@ -333,7 +355,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
 
   void _showRestock(BuildContext context, WidgetRef ref, int colorId) async {
     final defaultQty = ref.read(userSettingsProvider).defaultRestockQty;
-    final qty = await QuantitySelector.show(context, title: '补货数量', initialValue: defaultQty);
+    final qty = await QuantitySelector.show(context,
+        title: '补货数量', initialValue: defaultQty);
     if (qty != null && qty > 0) {
       ref.read(inventoryStateProvider.notifier).restock(colorId, qty);
     }
@@ -343,14 +366,17 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     final defaultQty = ref.read(userSettingsProvider).defaultRestockQty;
     final result = await RestockDialog.show(context, defaultQty: defaultQty);
     if (result != null && context.mounted) {
-      ref.read(inventoryStateProvider.notifier).restock(result.colorId, result.quantity);
+      ref
+          .read(inventoryStateProvider.notifier)
+          .restock(result.colorId, result.quantity);
     }
   }
 
   void _showConsume(BuildContext context, WidgetRef ref, int colorId) async {
     final qty = await QuantitySelector.show(context, title: '消耗数量');
     if (qty != null && qty > 0) {
-      final success = await ref.read(inventoryStateProvider.notifier).consume(colorId, qty);
+      final success =
+          await ref.read(inventoryStateProvider.notifier).consume(colorId, qty);
       if (!success && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('库存不足，无法消耗')),
@@ -381,7 +407,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               final qty = int.tryParse(controller.text);
@@ -395,13 +422,12 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       ),
     );
   }
-
-
 }
 
 class _SeriesSection extends StatelessWidget {
   final String series;
   final List<InventoryWithColor> items;
+  final int lowStockThreshold;
   final bool isExpanded;
   final VoidCallback onToggle;
   final void Function(InventoryWithColor) onTapItem;
@@ -412,6 +438,7 @@ class _SeriesSection extends StatelessWidget {
   const _SeriesSection({
     required this.series,
     required this.items,
+    required this.lowStockThreshold,
     required this.isExpanded,
     required this.onToggle,
     required this.onTapItem,
@@ -422,23 +449,34 @@ class _SeriesSection extends StatelessWidget {
 
   Color _seriesColor(String series) {
     switch (series) {
-      case 'A': return const Color(0xFFFFC107);
-      case 'B': return const Color(0xFF4CAF50);
-      case 'C': return const Color(0xFF2196F3);
-      case 'D': return const Color(0xFF9C27B0);
-      case 'E': return const Color(0xFFE91E63);
-      case 'F': return const Color(0xFFF44336);
-      case 'G': return const Color(0xFF795548);
-      case 'H': return const Color(0xFF607D8B);
-      case 'M': return const Color(0xFF9E9E9E);
-      default: return Colors.grey;
+      case 'A':
+        return const Color(0xFFFFC107);
+      case 'B':
+        return const Color(0xFF4CAF50);
+      case 'C':
+        return const Color(0xFF2196F3);
+      case 'D':
+        return const Color(0xFF9C27B0);
+      case 'E':
+        return const Color(0xFFE91E63);
+      case 'F':
+        return const Color(0xFFF44336);
+      case 'G':
+        return const Color(0xFF795548);
+      case 'H':
+        return const Color(0xFF607D8B);
+      case 'M':
+        return const Color(0xFF9E9E9E);
+      default:
+        return Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final color = _seriesColor(series);
-    final lowCount = items.where((i) => i.isLowStock).length;
+    final lowCount =
+        items.where((i) => i.isLowStockAt(lowStockThreshold)).length;
     final healthRatio = items.isEmpty ? 1.0 : 1.0 - (lowCount / items.length);
     final progressColor = healthRatio >= 0.9
         ? Colors.green
@@ -481,7 +519,8 @@ class _SeriesSection extends StatelessWidget {
                     children: [
                       Text(
                         seriesNames[series] ?? series,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       const SizedBox(height: 3),
                       SizedBox(
@@ -492,7 +531,8 @@ class _SeriesSection extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: healthRatio.clamp(0.0, 1.0),
                             backgroundColor: Colors.grey[200],
-                            valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(progressColor),
                           ),
                         ),
                       ),
@@ -506,7 +546,8 @@ class _SeriesSection extends StatelessWidget {
                   if (lowCount > 0) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(8),

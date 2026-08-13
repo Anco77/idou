@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../../core/services/ocr_service.dart';
 
 class UploadPage extends ConsumerStatefulWidget {
@@ -50,7 +51,7 @@ class _UploadPageState extends ConsumerState<UploadPage> {
       );
     }
     if (_grid == null) {
-      return _buildPicker(error: '未检测到网格区域，请确认图纸清晰完整');
+      return _buildDetectionFallback();
     }
     return _buildGridSizePicker();
   }
@@ -63,7 +64,8 @@ class _UploadPageState extends ConsumerState<UploadPage> {
           if (error != null) ...[
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text(error!, textAlign: TextAlign.center,
+            Text(error,
+                textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.red, fontSize: 15)),
             const SizedBox(height: 24),
           ],
@@ -105,11 +107,21 @@ class _UploadPageState extends ConsumerState<UploadPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.check_circle, size: 64, color: Colors.green),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                File(_imagePath!),
+                height: 180,
+                fit: BoxFit.contain,
+              ),
+            ),
             const SizedBox(height: 16),
-            const Text('已检测到网格区域', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('已定位图纸网格',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('网格区域: ${_grid!.cropW}×${_grid!.cropH}',
+            Text(
+                '自动识别 ${_grid!.gridCols}×${_grid!.gridRows} · '
+                '置信度 ${(_grid!.confidence * 100).round()}%',
                 style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 24),
             const Text('选择网格尺寸', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -145,11 +157,14 @@ class _UploadPageState extends ConsumerState<UploadPage> {
                   const SizedBox(width: 8),
                   SizedBox(
                     width: 72,
-                    child: TextField(
+                    child: TextFormField(
+                      key: ValueKey('cols-$_gridCols'),
+                      initialValue: '$_gridCols',
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (v) => _gridCols = int.tryParse(v) ?? 52,
@@ -160,11 +175,14 @@ class _UploadPageState extends ConsumerState<UploadPage> {
                   const SizedBox(width: 8),
                   SizedBox(
                     width: 72,
-                    child: TextField(
+                    child: TextFormField(
+                      key: ValueKey('rows-$_gridRows'),
+                      initialValue: '$_gridRows',
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (v) => _gridRows = int.tryParse(v) ?? 52,
@@ -180,7 +198,8 @@ class _UploadPageState extends ConsumerState<UploadPage> {
                 onPressed: _handleNext,
                 icon: const Icon(Icons.auto_awesome),
                 label: const Text('识别图纸'),
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
               ),
             ),
           ],
@@ -200,18 +219,88 @@ class _UploadPageState extends ConsumerState<UploadPage> {
       _grid = null;
     });
 
-    final service = OcrService();
-    final grid = await service.detectGrid(image.path);
+    GridDetectionResult? grid;
+    try {
+      grid = await OcrService().detectGrid(image.path);
+    } catch (_) {
+      grid = null;
+    }
 
     if (!mounted) return;
     setState(() {
       _detecting = false;
       _grid = grid;
+      if (grid != null) {
+        _gridCols = grid.gridCols;
+        _gridRows = grid.gridRows;
+        _customGrid = !<int>[52, 78, 104].contains(grid.gridCols) ||
+            grid.gridCols != grid.gridRows;
+      }
     });
+  }
+
+  Widget _buildDetectionFallback() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.grid_off, size: 64, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text('没有可靠识别到网格线',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+              '可以换一张边缘完整、拍摄更正的图片；也可以使用整张图片并手动填写行列数。',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                OutlinedButton(
+                  onPressed: () => setState(() => _imagePath = null),
+                  child: const Text('重新选择'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final bytes = await File(_imagePath!).readAsBytes();
+                    final decoded = await decodeImageFromList(bytes);
+                    if (!mounted) return;
+                    setState(() {
+                      _grid = GridDetectionResult(
+                        cropX: 0,
+                        cropY: 0,
+                        cropW: decoded.width,
+                        cropH: decoded.height,
+                        gridCols: _gridCols,
+                        gridRows: _gridRows,
+                        confidence: 0,
+                      );
+                      _customGrid = true;
+                    });
+                  },
+                  child: const Text('手动设置'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _handleNext() {
     if (_imagePath == null || _grid == null) return;
+    if (_gridCols < 2 || _gridCols > 300 || _gridRows < 2 || _gridRows > 300) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('行列数需在 2～300 之间')),
+      );
+      return;
+    }
     context.push('/recognition/result', extra: {
       'imagePath': _imagePath,
       'cropX': _grid!.cropX,

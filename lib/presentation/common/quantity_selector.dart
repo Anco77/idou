@@ -14,7 +14,8 @@ class QuantitySelector extends StatefulWidget {
   });
 
   /// 显示选择器弹窗
-  static Future<int?> show(BuildContext context, {
+  static Future<int?> show(
+    BuildContext context, {
     String title = '选择数量',
     int initialValue = 1,
   }) {
@@ -90,7 +91,8 @@ class _QuantitySelectorState extends State<QuantitySelector> {
               decoration: const InputDecoration(
                 labelText: '自定义数量',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               onChanged: (v) {
                 setState(() {

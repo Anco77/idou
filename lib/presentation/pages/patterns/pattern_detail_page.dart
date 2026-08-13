@@ -8,6 +8,10 @@ import '../../../core/database/daos/patterns_dao.dart';
 import '../../../domain/repositories/patterns_repository.dart';
 import '../../providers/patterns_providers.dart';
 import '../../theme/app_colors.dart';
+import '../../controllers/pattern_editor_controller.dart';
+import '../../widgets/pattern_editor.dart';
+import '../../../domain/models/bead_color.dart';
+import '../../../domain/models/pattern.dart';
 
 class PatternDetailPage extends ConsumerStatefulWidget {
   final String patternId;
@@ -21,6 +25,7 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
   PatternItem? _pattern;
   List<ConsumptionWithColor>? _consumptions;
   bool _isLoading = true;
+  PatternEditorController? _editor;
 
   @override
   void initState() {
@@ -42,6 +47,46 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
     }
   }
 
+  PatternEditorController? _buildEditor(
+    PatternItem pattern,
+    List<ConsumptionWithColor> consumptions,
+  ) {
+    if (pattern.rows < 1 || pattern.cols < 1 || pattern.grid == null) {
+      return null;
+    }
+    try {
+      final raw = jsonDecode(pattern.grid!) as List<dynamic>;
+      final palette = _palette(consumptions);
+      final byId = {for (final color in palette) color.id: color};
+      final cells = raw.map<List<PatternCell?>>((row) {
+        return (row as List<dynamic>).map<PatternCell?>((id) {
+          final color = byId[id as int?];
+          return color == null
+              ? null
+              : PatternCell(color: color, source: CellSource.generated);
+        }).toList();
+      }).toList();
+      return PatternEditorController(
+        PatternGrid(pattern.rows, pattern.cols, cells),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<BeadColor> _palette(List<ConsumptionWithColor> rows) => rows.map((row) {
+        final hex = row.hexValue.replaceFirst('#', '');
+        final value = int.tryParse(hex, radix: 16) ?? 0;
+        return BeadColor(
+          id: row.colorId,
+          code: row.colorName,
+          displayName: row.colorName,
+          red: (value >> 16) & 255,
+          green: (value >> 8) & 255,
+          blue: value & 255,
+        );
+      }).toList();
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -60,6 +105,7 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
 
     final pattern = _pattern!;
     final consumptions = _consumptions ?? [];
+    final editor = _editor ??= _buildEditor(pattern, consumptions);
 
     return Scaffold(
       appBar: AppBar(
@@ -79,6 +125,15 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
         padding: const EdgeInsets.all(16),
         children: [
           // 图纸大图
+          if (editor != null)
+            SizedBox(
+              height: 460,
+              child: PatternEditor(
+                controller: editor,
+                palette: _palette(consumptions),
+              ),
+            ),
+          if (editor != null) const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.file(
@@ -96,13 +151,16 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('基本信息', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('基本信息',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   _Row('名称', pattern.title),
-                  _Row('来源', pattern.source == 'ai_recognize' ? 'AI识别图纸' : 'AI生成图纸'),
+                  _Row('来源',
+                      pattern.source == 'ai_recognize' ? 'AI识别图纸' : 'AI生成图纸'),
                   _Row('上传时间', pattern.uploadTime.toString().substring(0, 19)),
                   if (pattern.completeTime != null)
-                    _Row('完成时间', pattern.completeTime.toString().substring(0, 10)),
+                    _Row('完成时间',
+                        pattern.completeTime.toString().substring(0, 10)),
                   _Row('状态', pattern.isCompleted ? '已完成' : '未完成'),
                 ],
               ),
@@ -117,25 +175,30 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('色号消耗明细', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('色号消耗明细',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   if (consumptions.isEmpty)
                     const Text('暂无消耗数据', style: TextStyle(color: Colors.grey))
                   else
                     ...consumptions.map((c) => ListTile(
-                      dense: true,
-                      leading: Container(
-                        width: 24, height: 24,
-                        decoration: BoxDecoration(
-                          color: Color(int.parse(c.hexValue.replaceFirst('#', '0xFF'))),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                      ),
-                      title: Text('#${c.colorId.toString().padLeft(3, '0')} ${c.colorName}'),
-                      trailing: Text('${c.quantity} 颗',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                    )),
+                          dense: true,
+                          leading: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Color(int.parse(
+                                  c.hexValue.replaceFirst('#', '0xFF'))),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                          ),
+                          title: Text(
+                              '#${c.colorId.toString().padLeft(3, '0')} ${c.colorName}'),
+                          trailing: Text('${c.quantity} 颗',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                        )),
                 ],
               ),
             ),
@@ -143,14 +206,16 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
           const SizedBox(height: 12),
 
           // 成品照片
-          if (pattern.completePhotos != null && pattern.completePhotos!.isNotEmpty)
+          if (pattern.completePhotos != null &&
+              pattern.completePhotos!.isNotEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('成品照片', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('成品照片',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     SizedBox(
                       height: 100,
@@ -158,15 +223,17 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
                         scrollDirection: Axis.horizontal,
                         children: (jsonDecode(pattern.completePhotos!) as List)
                             .map((path) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.file(
-                                  File(path as String),
-                                  width: 100, height: 100, fit: BoxFit.cover,
-                                ),
-                              ),
-                            ))
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      File(path as String),
+                                      width: 100,
+                                      height: 100,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ))
                             .toList(),
                       ),
                     ),
@@ -198,13 +265,18 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('修改名称'),
-        content: TextField(controller: controller, decoration: const InputDecoration(labelText: '图纸名称')),
+        content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(labelText: '图纸名称')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await ref.read(patternsRepositoryProvider).updateTitle(widget.patternId, controller.text);
+              await ref
+                  .read(patternsRepositoryProvider)
+                  .updateTitle(widget.patternId, controller.text);
               _loadData();
             },
             child: const Text('保存'),
@@ -221,11 +293,14 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
         title: const Text('删除图纸'),
         content: const Text('确定要删除这张图纸吗？此操作不可撤销。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await ref.read(patternsStateProvider.notifier).deletePattern(widget.patternId);
+              await ref
+                  .read(patternsStateProvider.notifier)
+                  .deletePattern(widget.patternId);
               if (mounted) context.pop();
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -267,15 +342,16 @@ class _PatternDetailPageState extends ConsumerState<PatternDetailPage> {
 
     // 保存
     await ref.read(patternsRepositoryProvider).updateCompletion(
-      patternId: widget.patternId,
-      completeTime: selectedDate,
-      photos: photos,
-    );
+          patternId: widget.patternId,
+          completeTime: selectedDate,
+          photos: photos,
+        );
 
     _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('完成记录已保存！'), backgroundColor: AppColors.success),
+        const SnackBar(
+            content: Text('完成记录已保存！'), backgroundColor: AppColors.success),
       );
     }
   }
@@ -292,7 +368,10 @@ class _Row extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13))),
+          SizedBox(
+              width: 80,
+              child: Text(label,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13))),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
       ),

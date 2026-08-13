@@ -64,6 +64,8 @@ class ColorMatcher {
 
   ColorMatcher(this._standardColors);
 
+  List<StandardColor> get standardColors => List.unmodifiable(_standardColors);
+
   StandardColor? getStandardById(int colorId) {
     for (final c in _standardColors) {
       if (c.colorId == colorId) return c;
@@ -72,8 +74,12 @@ class ColorMatcher {
   }
 
   MatchResult findNearest(int r, int g, int b) {
+    if (_standardColors.isEmpty) {
+      throw StateError('标准色库为空，请先初始化色号数据');
+    }
     final key = (r << 16) | (g << 8) | b;
-    final pixelLab = _labCache.putIfAbsent(key, () => LabColor.fromRGB(r, g, b));
+    final pixelLab =
+        _labCache.putIfAbsent(key, () => LabColor.fromRGB(r, g, b));
 
     const topN = 5;
     final heap = <_Candidate>[];
@@ -85,7 +91,9 @@ class ColorMatcher {
       if (heap.length < topN) {
         heap.add(_Candidate(color, d));
         if (heap.length == topN) {
-          for (int i = topN ~/ 2 - 1; i >= 0; i--) _siftDown(heap, i);
+          for (int i = topN ~/ 2 - 1; i >= 0; i--) {
+            _siftDown(heap, i);
+          }
         }
       } else if (d < heap[0].dist) {
         heap[0] = _Candidate(color, d);
@@ -121,7 +129,8 @@ class ColorMatcher {
         if (a < 128) continue;
 
         final match = findNearest(r, g, b);
-        colorCounts[match.color.colorId] = (colorCounts[match.color.colorId] ?? 0) + 1;
+        colorCounts[match.color.colorId] =
+            (colorCounts[match.color.colorId] ?? 0) + 1;
       }
     }
 
@@ -134,8 +143,8 @@ class ColorMatcher {
     );
   }
 
-  Color averageGridColor(Uint8List pixels, int width, int height,
-      int gridX, int gridY, int gridW, int gridH) {
+  Color averageGridColor(Uint8List pixels, int width, int height, int gridX,
+      int gridY, int gridW, int gridH) {
     int sumR = 0, sumG = 0, sumB = 0, count = 0;
 
     for (int y = gridY; y < gridY + gridH && y < height; y++) {
@@ -156,45 +165,109 @@ class ColorMatcher {
     return Color.fromARGB(255, sumR ~/ count, sumG ~/ count, sumB ~/ count);
   }
 
-  StandardColor gridMatchDominant(List<List<int>> pixelRgbs, {double threshold = 0.3}) {
-    final votes = <int, int>{};
-    int total = 0;
-    int sumR = 0, sumG = 0, sumB = 0;
+  StandardColor gridMatchDominant(List<List<int>> pixelRgbs) {
+    if (_standardColors.isEmpty) {
+      throw StateError('标准色库为空，请先初始化色号数据');
+    }
+    // Quantised mode is both faster and more robust than matching every pixel.
+    // Printed labels and grid rules occupy a minority of a cell, so the most
+    // common 5-bit RGB bucket normally represents the actual bead colour.
+    final buckets = <int, List<int>>{};
 
     for (final rgb in pixelRgbs) {
       if (rgb.length < 3) continue;
       final r = rgb[0], g = rgb[1], b = rgb[2];
-      final match = findNearest(r, g, b);
-      votes[match.color.colorId] = (votes[match.color.colorId] ?? 0) + 1;
-      total++;
-      sumR += r; sumG += g; sumB += b;
+      final key = (r ~/ 8 << 10) | (g ~/ 8 << 5) | (b ~/ 8);
+      final bucket = buckets.putIfAbsent(key, () => [0, 0, 0, 0]);
+      bucket[0]++;
+      bucket[1] += r;
+      bucket[2] += g;
+      bucket[3] += b;
     }
 
-    if (total == 0) return _standardColors.first;
+    if (buckets.isEmpty) return _standardColors.first;
+    final dominant = buckets.values.reduce((a, b) => a[0] >= b[0] ? a : b);
+    return findNearest(
+      dominant[1] ~/ dominant[0],
+      dominant[2] ~/ dominant[0],
+      dominant[3] ~/ dominant[0],
+    ).color;
+  }
 
-    final topEntry = votes.entries.reduce((a, b) => a.value > b.value ? a : b);
-    final topPct = topEntry.value / total;
+  /// Remaps a grid to its most frequently used colours.
+  Map<int, int> reducePalette(
+    List<List<StandardColor?>> grid, {
+    required int maxColors,
+  }) {
+    final counts = <int, int>{};
+    final byId = <int, StandardColor>{};
+    for (final row in grid) {
+      for (final color in row) {
+        if (color == null) continue;
+        counts[color.colorId] = (counts[color.colorId] ?? 0) + 1;
+        byId[color.colorId] = color;
+      }
+    }
+    if (counts.length <= maxColors) return counts;
 
-    if (topPct >= threshold) {
-      return _standardColors.firstWhere((c) => c.colorId == topEntry.key);
+    final keepIds = (counts.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(maxColors)
+        .map((entry) => entry.key)
+        .toSet();
+    final palette = keepIds.map((id) => byId[id]!).toList();
+
+    for (final row in grid) {
+      for (var col = 0; col < row.length; col++) {
+        final color = row[col];
+        if (color == null || keepIds.contains(color.colorId)) continue;
+        StandardColor? best;
+        var bestDistance = double.infinity;
+        for (final candidate in palette) {
+          final distance = deltaE00(color.lab, candidate.lab);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = candidate;
+          }
+        }
+        row[col] = best;
+      }
     }
 
-    final avg = findNearest(sumR ~/ total, sumG ~/ total, sumB ~/ total);
-    return avg.color;
+    final result = <int, int>{};
+    for (final row in grid) {
+      for (final color in row) {
+        if (color != null) {
+          result[color.colorId] = (result[color.colorId] ?? 0) + 1;
+        }
+      }
+    }
+    return result;
   }
 
   List<List<StandardColor>> gridMatch(
-    Uint8List pixels, int width, int height, int gridSize
-  ) {
+      Uint8List pixels, int width, int height, int gridSize) {
+    if (_standardColors.isEmpty) {
+      throw StateError('标准色库为空，请先初始化色号数据');
+    }
+    if (gridSize < 1 || width < gridSize || height < gridSize) {
+      throw ArgumentError('图像尺寸必须支持指定的网格大小');
+    }
     final cellW = width ~/ gridSize;
     final cellH = height ~/ gridSize;
-    final result = List.generate(gridSize, (_) => List.filled(gridSize, _standardColors.first));
+    final result = List.generate(
+        gridSize, (_) => List.filled(gridSize, _standardColors.first));
 
     for (int row = 0; row < gridSize; row++) {
       for (int col = 0; col < gridSize; col++) {
         final avg = averageGridColor(
-          pixels, width, height,
-          col * cellW, row * cellH, cellW, cellH,
+          pixels,
+          width,
+          height,
+          col * cellW,
+          row * cellH,
+          cellW,
+          cellH,
         );
         if (avg == Colors.transparent) continue;
         final match = findNearest(avg.red, avg.green, avg.blue);
@@ -205,7 +278,8 @@ class ColorMatcher {
     return result;
   }
 
-  Map<int, int> mergeSimilarColors(List<List<StandardColor?>> grid, {double threshold = 10.0}) {
+  Map<int, int> mergeSimilarColors(List<List<StandardColor?>> grid,
+      {double threshold = 10.0}) {
     if (threshold <= 0) {
       final counts = <int, int>{};
       for (final row in grid) {
@@ -229,7 +303,8 @@ class ColorMatcher {
       }
     }
 
-    final sorted = freq.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
+    final sorted = freq.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
 
     for (int i = 0; i < sorted.length; i++) {
       final targetId = sorted[i].key;

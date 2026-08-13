@@ -19,23 +19,24 @@ class UserSettings {
     int? lowStockThreshold,
     int? defaultRestockQty,
     ThemeMode? themeMode,
-  }) => UserSettings(
-    lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
-    defaultRestockQty: defaultRestockQty ?? this.defaultRestockQty,
-    themeMode: themeMode ?? this.themeMode,
-  );
+  }) =>
+      UserSettings(
+        lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
+        defaultRestockQty: defaultRestockQty ?? this.defaultRestockQty,
+        themeMode: themeMode ?? this.themeMode,
+      );
 
   Map<String, dynamic> toJson() => {
-    'lowStockThreshold': lowStockThreshold,
-    'defaultRestockQty': defaultRestockQty,
-    'themeMode': themeMode.index,
-  };
+        'lowStockThreshold': lowStockThreshold,
+        'defaultRestockQty': defaultRestockQty,
+        'themeMode': themeMode.index,
+      };
 
   factory UserSettings.fromJson(Map<String, dynamic> json) => UserSettings(
-    lowStockThreshold: json['lowStockThreshold'] as int? ?? 500,
-    defaultRestockQty: json['defaultRestockQty'] as int? ?? 100,
-    themeMode: ThemeMode.values[json['themeMode'] as int? ?? 0],
-  );
+        lowStockThreshold: json['lowStockThreshold'] as int? ?? 500,
+        defaultRestockQty: json['defaultRestockQty'] as int? ?? 100,
+        themeMode: ThemeMode.values[json['themeMode'] as int? ?? 0],
+      );
 }
 
 class UserSettingsService {
@@ -50,7 +51,8 @@ class UserSettingsService {
       final file = File(p.join(dir.path, _fileName));
       if (!file.existsSync()) return;
       final content = await file.readAsString();
-      _settings = UserSettings.fromJson(jsonDecode(content) as Map<String, dynamic>);
+      _settings =
+          UserSettings.fromJson(jsonDecode(content) as Map<String, dynamic>);
     } catch (_) {}
   }
 
@@ -62,5 +64,4 @@ class UserSettingsService {
       await file.writeAsString(jsonEncode(settings.toJson()));
     } catch (_) {}
   }
-
 }

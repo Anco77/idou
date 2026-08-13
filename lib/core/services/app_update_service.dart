@@ -77,7 +77,8 @@ class AppUpdateService {
 
     // 1. Check network connectivity
     final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity.isEmpty || connectivity.contains(ConnectivityResult.none)) {
+    if (connectivity.isEmpty ||
+        connectivity.contains(ConnectivityResult.none)) {
       return const CheckFailed('网络未连接，请检查网络设置');
     }
 
@@ -141,9 +142,9 @@ class AppUpdateService {
       final url = Uri.parse(
         'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest',
       );
-      final response = await http
-          .get(url, headers: {'Accept': 'application/vnd.github.v3+json'})
-          .timeout(const Duration(seconds: 20));
+      final response = await http.get(url, headers: {
+        'Accept': 'application/vnd.github.v3+json'
+      }).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 403) {
         return const CheckFailed('');
@@ -175,7 +176,8 @@ class AppUpdateService {
         releaseNotes: data['body'] as String? ?? '',
       );
 
-      if (_isNewerVersion(remoteInfo.version)) return UpdateAvailable(remoteInfo);
+      if (_isNewerVersion(remoteInfo.version))
+        return UpdateAvailable(remoteInfo);
       return NoUpdate(remoteInfo.version);
     } catch (_) {
       return const CheckFailed('');
@@ -196,7 +198,8 @@ class AppUpdateService {
       final apkUrl = data['apk_url'] as String? ?? '';
       final exeUrl = data['exe_url'] as String? ?? '';
       final downloadUrl = Platform.isAndroid ? apkUrl : exeUrl;
-      final mirrorUrl = data['download_mirror'] as String? ?? '$_mirrorPrefix$downloadUrl';
+      final mirrorUrl =
+          data['download_mirror'] as String? ?? '$_mirrorPrefix$downloadUrl';
 
       if (version.isEmpty || downloadUrl.isEmpty) {
         return const CheckFailed('');
@@ -209,7 +212,8 @@ class AppUpdateService {
         releaseNotes: data['notes'] as String? ?? '',
       );
 
-      if (_isNewerVersion(remoteInfo.version)) return UpdateAvailable(remoteInfo);
+      if (_isNewerVersion(remoteInfo.version))
+        return UpdateAvailable(remoteInfo);
       return NoUpdate(remoteInfo.version);
     } catch (_) {
       return const CheckFailed('');
@@ -263,13 +267,16 @@ class AppUpdateService {
     for (final urlString in urls) {
       try {
         final dir = await getTemporaryDirectory();
-        final fileName = 'idou-$_platformName-v${cached.version}$_targetExtension';
+        final fileName =
+            'idou-$_platformName-v${cached.version}$_targetExtension';
         final filePath = p.join(dir.path, fileName);
         final file = File(filePath);
 
         final uri = Uri.parse(urlString);
         final request = http.Request('GET', uri);
-        final response = await http.Client().send(request).timeout(const Duration(seconds: 60));
+        final response = await http.Client()
+            .send(request)
+            .timeout(const Duration(seconds: 60));
 
         if (response.statusCode != 200) continue;
 

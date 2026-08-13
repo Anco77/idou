@@ -5,6 +5,7 @@ import '../../core/utils/color_matcher.dart';
 
 /// 板型定义
 enum BoardType {
+  mini('迷你板', 29, 841),
   small('小板', 52, 2704),
   medium('中板', 78, 6084),
   large('大板', 104, 10816);
@@ -19,11 +20,13 @@ enum BoardType {
 class GenerationResult {
   final String sourceImagePath;
   final BoardType boardType;
-  final List<List<StandardColor>> grid; // [row][col]
+  final List<List<StandardColor?>>
+      grid; // [row][col], null = transparent/unused
   final Map<int, int> materialList; // colorId -> count
   final img.Image previewImage;
 
-  int get totalBeads => boardType.totalBeads;
+  int get totalBeads =>
+      materialList.values.fold(0, (sum, value) => sum + value);
 
   const GenerationResult({
     required this.sourceImagePath,
@@ -48,6 +51,8 @@ class PatternGenerationService {
     required String imagePath,
     required CropRect cropRect,
     required BoardType boardType,
+    int maxColors = 24,
+    bool removeLightBackground = true,
   }) async {
     // 1. 加载图像
     final file = File(imagePath);
@@ -56,33 +61,57 @@ class PatternGenerationService {
     if (image == null) throw Exception('无法解码图像');
 
     // 2. 裁剪主体区域
+    final cropX = cropRect.x.round().clamp(0, image.width - 1);
+    final cropY = cropRect.y.round().clamp(0, image.height - 1);
+    final cropW = cropRect.width.round().clamp(1, image.width - cropX);
+    final cropH = cropRect.height.round().clamp(1, image.height - cropY);
     final cropped = img.copyCrop(
       image,
-      x: cropRect.x.round(),
-      y: cropRect.y.round(),
-      width: cropRect.width.round(),
-      height: cropRect.height.round(),
+      x: cropX,
+      y: cropY,
+      width: cropW,
+      height: cropH,
     );
 
     // 3. 缩放到板型尺寸
-    final resized = img.copyResize(cropped,
-        width: boardType.size, height: boardType.size);
+    final resized =
+        img.copyResize(cropped, width: boardType.size, height: boardType.size);
 
     // 4. 获取像素数据
     final pixels = Uint8List.fromList(resized.getBytes());
 
     // 5. 网格匹配
-    final grid = _colorMatcher.gridMatch(
-      pixels, resized.width, resized.height, boardType.size,
+    final matched = _colorMatcher.gridMatch(
+      pixels,
+      resized.width,
+      resized.height,
+      boardType.size,
     );
+    final grid = matched
+        .map<List<StandardColor?>>((row) => row.cast<StandardColor?>())
+        .toList();
 
-    // 6. 统计用料
-    final materialList = <int, int>{};
-    for (final row in grid) {
-      for (final color in row) {
-        materialList[color.colorId] = (materialList[color.colorId] ?? 0) + 1;
+    if (removeLightBackground) {
+      for (var row = 0; row < resized.height; row++) {
+        for (var col = 0; col < resized.width; col++) {
+          final pixel = resized.getPixel(col, row);
+          final r = pixel.r.toInt();
+          final g = pixel.g.toInt();
+          final b = pixel.b.toInt();
+          final minValue =
+              [r, g, b].reduce((a, value) => a < value ? a : value);
+          final maxValue =
+              [r, g, b].reduce((a, value) => a > value ? a : value);
+          if (minValue > 242 && maxValue - minValue < 16) grid[row][col] = null;
+        }
       }
     }
+
+    // 6. 限制调色板并统计用料
+    final materialList = _colorMatcher.reducePalette(
+      grid,
+      maxColors: maxColors.clamp(2, 80),
+    );
 
     // 7. 生成预览图
     final preview = _generatePreviewImage(grid, boardType);
@@ -97,7 +126,8 @@ class PatternGenerationService {
   }
 
   /// 生成预览网格图（每个格子用色号颜色填充+网格线）
-  img.Image _generatePreviewImage(List<List<StandardColor>> grid, BoardType boardType) {
+  img.Image _generatePreviewImage(
+      List<List<StandardColor?>> grid, BoardType boardType) {
     const cellSize = 8; // 预览时每个格子8像素
     final previewSize = boardType.size * cellSize;
     final preview = img.Image(width: previewSize + 1, height: previewSize + 1);
@@ -106,15 +136,16 @@ class PatternGenerationService {
     for (int row = 0; row < boardType.size; row++) {
       for (int col = 0; col < boardType.size; col++) {
         final color = grid[row][col];
-        final r = color.r;
-        final g = color.g;
-        final b = color.b;
+        final r = color?.r ?? 0;
+        final g = color?.g ?? 0;
+        final b = color?.b ?? 0;
+        final a = color == null ? 0 : 255;
         for (int dy = 0; dy < cellSize; dy++) {
           for (int dx = 0; dx < cellSize; dx++) {
             preview.setPixel(
               col * cellSize + dx,
               row * cellSize + dy,
-              img.ColorRgb8(r, g, b),
+              img.ColorRgba8(r, g, b, a),
             );
           }
         }
@@ -140,10 +171,9 @@ class PatternGenerationService {
 
   /// 替换网格中单个格子的颜色
   GenerationResult replaceColor(
-    GenerationResult result, int row, int col, StandardColor newColor
-  ) {
-    final newGrid = List<List<StandardColor>>.from(
-      result.grid.map((r) => List<StandardColor>.from(r)),
+      GenerationResult result, int row, int col, StandardColor? newColor) {
+    final newGrid = List<List<StandardColor?>>.from(
+      result.grid.map((r) => List<StandardColor?>.from(r)),
     );
     newGrid[row][col] = newColor;
 
@@ -151,6 +181,7 @@ class PatternGenerationService {
     final newMaterialList = <int, int>{};
     for (final r in newGrid) {
       for (final c in r) {
+        if (c == null) continue;
         newMaterialList[c.colorId] = (newMaterialList[c.colorId] ?? 0) + 1;
       }
     }
@@ -171,5 +202,9 @@ class PatternGenerationService {
 /// 裁剪矩形
 class CropRect {
   final double x, y, width, height;
-  const CropRect({required this.x, required this.y, required this.width, required this.height});
+  const CropRect(
+      {required this.x,
+      required this.y,
+      required this.width,
+      required this.height});
 }

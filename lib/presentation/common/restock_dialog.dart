@@ -13,7 +13,8 @@ class RestockDialog extends ConsumerStatefulWidget {
   final int defaultQty;
   const RestockDialog({super.key, this.defaultQty = 100});
 
-  static Future<RestockResult?> show(BuildContext context, {int defaultQty = 100}) {
+  static Future<RestockResult?> show(BuildContext context,
+      {int defaultQty = 100}) {
     return showDialog(
       context: context,
       builder: (ctx) => RestockDialog(defaultQty: defaultQty),
@@ -46,7 +47,8 @@ class _RestockDialogState extends ConsumerState<RestockDialog> {
     final state = ref.watch(inventoryStateProvider);
     final grouped = state.groupedItems;
 
-    final seriesList = seriesOrder.where((s) => grouped.containsKey(s)).toList();
+    final seriesList =
+        seriesOrder.where((s) => grouped.containsKey(s)).toList();
     final colorsInSeries = <InventoryWithColor>[];
     if (_selectedSeries != null && grouped.containsKey(_selectedSeries)) {
       colorsInSeries.addAll(grouped[_selectedSeries]!);
@@ -65,10 +67,12 @@ class _RestockDialogState extends ConsumerState<RestockDialog> {
               labelText: '选择色号系列',
               border: OutlineInputBorder(),
             ),
-            items: seriesList.map((s) => DropdownMenuItem(
-              value: s,
-              child: Text('${s} · ${seriesNames[s] ?? ""}'),
-            )).toList(),
+            items: seriesList
+                .map((s) => DropdownMenuItem(
+                      value: s,
+                      child: Text('${s} · ${seriesNames[s] ?? ""}'),
+                    ))
+                .toList(),
             onChanged: (v) {
               setState(() {
                 _selectedSeries = v;
@@ -83,24 +87,26 @@ class _RestockDialogState extends ConsumerState<RestockDialog> {
               labelText: '选择色号',
               border: OutlineInputBorder(),
             ),
-            items: colorsInSeries.map((c) => DropdownMenuItem(
-              value: c,
-              child: Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: Color.fromARGB(255, c.r, c.g, c.b),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text('${c.mardId}'),
-                ],
-              ),
-            )).toList(),
+            items: colorsInSeries
+                .map((c) => DropdownMenuItem(
+                      value: c,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Color.fromARGB(255, c.r, c.g, c.b),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('${c.mardId}'),
+                        ],
+                      ),
+                    ))
+                .toList(),
             onChanged: (v) => setState(() => _selectedColor = v),
           ),
           if (_selectedColor != null) ...[
@@ -127,11 +133,14 @@ class _RestockDialogState extends ConsumerState<RestockDialog> {
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed: _selectedColor != null && (int.tryParse(_qtyController.text) ?? 0) > 0
-              ? () => Navigator.pop(context, RestockResult(
-                  colorId: _selectedColor!.colorId,
-                  quantity: int.parse(_qtyController.text),
-                ))
+          onPressed: _selectedColor != null &&
+                  (int.tryParse(_qtyController.text) ?? 0) > 0
+              ? () => Navigator.pop(
+                  context,
+                  RestockResult(
+                    colorId: _selectedColor!.colorId,
+                    quantity: int.parse(_qtyController.text),
+                  ))
               : null,
           child: const Text('确认补货'),
         ),

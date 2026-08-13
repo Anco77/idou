@@ -27,8 +27,18 @@ class InventoryService {
     return _repository.restock(colorId, quantity);
   }
 
+  Future<BatchAdjustResult> batchAdjust(
+    Map<int, int> quantities, {
+    required bool restock,
+  }) {
+    return _repository.batchAdjust(quantities, restock: restock);
+  }
+
+  Future<bool> reverseLog(int logId) => _repository.reverseLog(logId);
+
   /// 批量扣除（图纸用）
-  Future<DeductResult> batchDeduct(Map<int, int> consumptions, {String? patternId}) {
+  Future<DeductResult> batchDeduct(Map<int, int> consumptions,
+      {String? patternId}) {
     return _repository.batchDeduct(consumptions, patternId: patternId);
   }
 
@@ -48,13 +58,27 @@ class InventoryService {
   }
 
   /// 获取历史
-  Future<List<InventoryLogItem>> getLogsForColor(int colorId, {int limit = 50}) {
+  Future<List<InventoryLogItem>> getLogsForColor(int colorId,
+      {int limit = 50}) {
     return _repository.getLogsForColor(colorId, limit: limit);
   }
 
   /// 获取全局操作日志
-  Future<List<OperationLogItem>> getAllLogs({String? changeType, int limit = 200, int offset = 0}) {
-    return _repository.getAllLogs(changeType: changeType, limit: limit, offset: offset);
+  Future<List<OperationLogItem>> getAllLogs(
+      {String? changeType,
+      int? colorId,
+      DateTime? from,
+      DateTime? to,
+      int limit = 200,
+      int offset = 0}) {
+    return _repository.getAllLogs(
+      changeType: changeType,
+      colorId: colorId,
+      from: from,
+      to: to,
+      limit: limit,
+      offset: offset,
+    );
   }
 
   /// 获取低量色号

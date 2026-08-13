@@ -7,7 +7,8 @@ class ColorStandards extends Table {
   IntColumn get r => integer()();
   IntColumn get g => integer()();
   IntColumn get b => integer()();
-  IntColumn get defaultQty => integer().named('default_qty').withDefault(const Constant(1200))();
+  IntColumn get defaultQty =>
+      integer().named('default_qty').withDefault(const Constant(1200))();
 
   @override
   Set<Column> get primaryKey => {colorId};

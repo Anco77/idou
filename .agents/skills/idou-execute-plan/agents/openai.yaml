@@ -1,0 +1,5 @@
+interface:
+  display_name: "idou 全流程执行"
+  short_description: "按照任务台账逐步完成开发测试验证文档更新与交付闭环"
+  default_prompt: "Use $idou-execute-plan to execute the next ready idou task through all quality gates."
+

@@ -8,11 +8,36 @@ void main() {
 
     setUp(() {
       standards = [
-        const StandardColor(colorId: 1, colorName: '黑色', hexValue: '#000000', r: 0, g: 0, b: 0),
-        const StandardColor(colorId: 2, colorName: '白色', hexValue: '#FFFFFF', r: 255, g: 255, b: 255),
-        const StandardColor(colorId: 3, colorName: '红色', hexValue: '#FF0000', r: 255, g: 0, b: 0),
-        const StandardColor(colorId: 4, colorName: '绿色', hexValue: '#00FF00', r: 0, g: 255, b: 0),
-        const StandardColor(colorId: 5, colorName: '蓝色', hexValue: '#0000FF', r: 0, g: 0, b: 255),
+        StandardColor(
+            colorId: 1, colorName: '黑色', hexValue: '#000000', r: 0, g: 0, b: 0),
+        StandardColor(
+            colorId: 2,
+            colorName: '白色',
+            hexValue: '#FFFFFF',
+            r: 255,
+            g: 255,
+            b: 255),
+        StandardColor(
+            colorId: 3,
+            colorName: '红色',
+            hexValue: '#FF0000',
+            r: 255,
+            g: 0,
+            b: 0),
+        StandardColor(
+            colorId: 4,
+            colorName: '绿色',
+            hexValue: '#00FF00',
+            r: 0,
+            g: 255,
+            b: 0),
+        StandardColor(
+            colorId: 5,
+            colorName: '蓝色',
+            hexValue: '#0000FF',
+            r: 0,
+            g: 0,
+            b: 255),
       ];
       matcher = ColorMatcher(standards);
     });
@@ -42,5 +67,12 @@ void main() {
       final result = matcher.findNearest(128, 128, 128);
       expect(result.distance, greaterThanOrEqualTo(0));
     });
+  });
+
+  test('rejects matching against an empty palette', () {
+    expect(
+      () => ColorMatcher(const []).findNearest(0, 0, 0),
+      throwsStateError,
+    );
   });
 }

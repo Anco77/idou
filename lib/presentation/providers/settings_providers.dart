@@ -10,7 +10,8 @@ final settingsLoadedProvider = FutureProvider<void>((ref) {
   return ref.watch(userSettingsServiceProvider).load();
 });
 
-final userSettingsProvider = StateNotifierProvider<UserSettingsNotifier, UserSettings>((ref) {
+final userSettingsProvider =
+    StateNotifierProvider<UserSettingsNotifier, UserSettings>((ref) {
   final service = ref.watch(userSettingsServiceProvider);
   ref.watch(settingsLoadedProvider);
   return UserSettingsNotifier(service);

@@ -36,7 +36,8 @@ class AiGeneratePage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('可选板型', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('可选板型',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     _BoardInfo('小板', '52 × 52', '2,704 颗'),
                     _BoardInfo('中板', '78 × 78', '6,084 颗'),
@@ -90,10 +91,14 @@ class _BoardInfo extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          SizedBox(width: 48, child: Text(name, style: const TextStyle(fontSize: 13))),
+          SizedBox(
+              width: 48,
+              child: Text(name, style: const TextStyle(fontSize: 13))),
           Text(size, style: const TextStyle(fontSize: 13)),
           const Spacer(),
-          Text(beads, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(beads,
+              style:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
         ],
       ),
     );

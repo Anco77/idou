@@ -29,7 +29,8 @@ class LowStockBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.lowStockBg,
           border: Border(
-            bottom: BorderSide(color: AppColors.lowStock.withValues(alpha: 0.3)),
+            bottom:
+                BorderSide(color: AppColors.lowStock.withValues(alpha: 0.3)),
           ),
         ),
         child: Column(
@@ -58,7 +59,8 @@ class LowStockBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, color: AppColors.warning, size: 20),
+                const Icon(Icons.chevron_right,
+                    color: AppColors.warning, size: 20),
               ],
             ),
             const SizedBox(height: 6),
@@ -67,7 +69,8 @@ class LowStockBanner extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: ratio.clamp(0.0, 1.0),
                 backgroundColor: AppColors.lowStock.withValues(alpha: 0.15),
-                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.warning),
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(AppColors.warning),
                 minHeight: 6,
               ),
             ),

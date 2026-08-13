@@ -127,7 +127,8 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
     // Windows: only show guide button
     if (_isWindows) {
       return [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('关闭')),
         FilledButton.icon(
           icon: const Icon(Icons.open_in_browser, size: 18),
           label: const Text('前往下载'),
@@ -146,26 +147,30 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
 
     if (_error != null) {
       return [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('关闭')),
         FilledButton(onPressed: _startDownload, child: const Text('重试')),
       ];
     }
 
     if (_installerPath != null) {
       return [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('稍后')),
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('稍后')),
         FilledButton(onPressed: _install, child: const Text('立即安装')),
       ];
     }
 
     if (_isDownloading) {
       return [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('取消')),
       ];
     }
 
     return [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('稍后')),
+      TextButton(
+          onPressed: () => Navigator.pop(context), child: const Text('稍后')),
       FilledButton(onPressed: _startDownload, child: const Text('立即更新')),
     ];
   }

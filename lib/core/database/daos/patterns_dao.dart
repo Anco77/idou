@@ -12,6 +12,13 @@ class PatternItem {
   final String status;
   final String source;
   final DateTime createdAt;
+  final String? paletteId;
+  final int rows;
+  final int cols;
+  final String? grid;
+  final bool inventoryDeducted;
+  final String? previewImage;
+  final String? recognitionSummary;
 
   const PatternItem({
     required this.id,
@@ -23,33 +30,56 @@ class PatternItem {
     required this.status,
     required this.source,
     required this.createdAt,
+    this.paletteId,
+    this.rows = 0,
+    this.cols = 0,
+    this.grid,
+    this.inventoryDeducted = false,
+    this.previewImage,
+    this.recognitionSummary,
   });
 
   bool get isCompleted => status == 'completed';
 
   Map<String, dynamic> toMap() => {
-    'id': id,
-    'title': title,
-    'original_image': originalImage,
-    'upload_time': uploadTime.toIso8601String(),
-    'complete_time': completeTime?.toIso8601String(),
-    'complete_photos': completePhotos,
-    'status': status,
-    'source': source,
-    'created_at': createdAt.toIso8601String(),
-  };
+        'id': id,
+        'title': title,
+        'original_image': originalImage,
+        'upload_time': uploadTime.toIso8601String(),
+        'complete_time': completeTime?.toIso8601String(),
+        'complete_photos': completePhotos,
+        'status': status,
+        'source': source,
+        'created_at': createdAt.toIso8601String(),
+        'palette_id': paletteId,
+        'rows': rows,
+        'cols': cols,
+        'grid': grid,
+        'inventory_deducted': inventoryDeducted ? 1 : 0,
+        'preview_image': previewImage,
+        'recognition_summary': recognitionSummary,
+      };
 
   factory PatternItem.fromMap(Map<String, dynamic> map) => PatternItem(
-    id: map['id'] as String,
-    title: map['title'] as String,
-    originalImage: map['original_image'] as String,
-    uploadTime: DateTime.parse(map['upload_time'] as String),
-    completeTime: map['complete_time'] != null ? DateTime.parse(map['complete_time'] as String) : null,
-    completePhotos: map['complete_photos'] as String?,
-    status: map['status'] as String,
-    source: map['source'] as String,
-    createdAt: DateTime.parse(map['created_at'] as String),
-  );
+        id: map['id'] as String,
+        title: map['title'] as String,
+        originalImage: map['original_image'] as String,
+        uploadTime: DateTime.parse(map['upload_time'] as String),
+        completeTime: map['complete_time'] != null
+            ? DateTime.parse(map['complete_time'] as String)
+            : null,
+        completePhotos: map['complete_photos'] as String?,
+        status: map['status'] as String,
+        source: map['source'] as String,
+        createdAt: DateTime.parse(map['created_at'] as String),
+        paletteId: map['palette_id'] as String?,
+        rows: (map['rows'] as int?) ?? 0,
+        cols: (map['cols'] as int?) ?? 0,
+        grid: map['grid'] as String?,
+        inventoryDeducted: ((map['inventory_deducted'] as int?) ?? 0) != 0,
+        previewImage: map['preview_image'] as String?,
+        recognitionSummary: map['recognition_summary'] as String?,
+      );
 }
 
 /// 图纸消耗明细
@@ -67,18 +97,19 @@ class PatternConsumptionItem {
   });
 
   Map<String, dynamic> toMap() => {
-    'id': id,
-    'pattern_id': patternId,
-    'color_id': colorId,
-    'quantity': quantity,
-  };
+        'id': id,
+        'pattern_id': patternId,
+        'color_id': colorId,
+        'quantity': quantity,
+      };
 
-  factory PatternConsumptionItem.fromMap(Map<String, dynamic> map) => PatternConsumptionItem(
-    id: map['id'] as int,
-    patternId: map['pattern_id'] as String,
-    colorId: map['color_id'] as int,
-    quantity: map['quantity'] as int,
-  );
+  factory PatternConsumptionItem.fromMap(Map<String, dynamic> map) =>
+      PatternConsumptionItem(
+        id: map['id'] as int,
+        patternId: map['pattern_id'] as String,
+        colorId: map['color_id'] as int,
+        quantity: map['quantity'] as int,
+      );
 }
 
 /// 图纸数据访问对象
@@ -90,8 +121,8 @@ class PatternsDao {
   /// 保存图纸
   Future<void> insertPattern(PatternItem pattern) async {
     await db.customInsert(
-      'INSERT OR REPLACE INTO patterns (id, title, original_image, upload_time, complete_time, complete_photos, status, source, created_at) '
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT OR REPLACE INTO patterns (id, title, original_image, upload_time, complete_time, complete_photos, status, source, created_at, palette_id, rows, cols, grid, inventory_deducted, preview_image, recognition_summary) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       variables: [
         Variable(pattern.id),
         Variable(pattern.title),
@@ -102,6 +133,13 @@ class PatternsDao {
         Variable(pattern.status),
         Variable(pattern.source),
         Variable(pattern.createdAt.toIso8601String()),
+        Variable(pattern.paletteId),
+        Variable.withInt(pattern.rows),
+        Variable.withInt(pattern.cols),
+        Variable(pattern.grid),
+        Variable.withInt(pattern.inventoryDeducted ? 1 : 0),
+        Variable(pattern.previewImage),
+        Variable(pattern.recognitionSummary),
       ],
     );
   }
@@ -119,7 +157,8 @@ class PatternsDao {
   }
 
   /// 批量保存消耗明细
-  Future<void> insertConsumptions(String patternId, List<Map<String, dynamic>> consumptions) async {
+  Future<void> insertConsumptions(
+      String patternId, List<Map<String, dynamic>> consumptions) async {
     await db.batch((batch) {
       for (final c in consumptions) {
         batch.customStatement(
@@ -135,7 +174,8 @@ class PatternsDao {
   }
 
   /// 获取所有图纸
-  Future<List<PatternItem>> getAllPatterns({int limit = 100, int offset = 0}) async {
+  Future<List<PatternItem>> getAllPatterns(
+      {int limit = 100, int offset = 0}) async {
     final rows = await db.customSelect(
       'SELECT * FROM patterns ORDER BY created_at DESC LIMIT ? OFFSET ?',
       variables: [Variable.withInt(limit), Variable.withInt(offset)],

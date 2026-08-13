@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/bootstrap/application_providers.dart';
+import '../../application/patterns/load_patterns.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/daos/patterns_dao.dart';
 import '../../data/repositories/patterns_repository_impl.dart';
+import '../../domain/models/pattern_summary.dart';
 import '../../domain/repositories/patterns_repository.dart';
 import '../../domain/services/inventory_service.dart';
 import 'inventory_providers.dart';
@@ -31,11 +34,12 @@ class PatternsState {
     List<PatternItem>? patterns,
     bool? isLoading,
     String? error,
-  }) => PatternsState(
-    patterns: patterns ?? this.patterns,
-    isLoading: isLoading ?? this.isLoading,
-    error: error ?? this.error,
-  );
+  }) =>
+      PatternsState(
+        patterns: patterns ?? this.patterns,
+        isLoading: isLoading ?? this.isLoading,
+        error: error ?? this.error,
+      );
 }
 
 final patternsStateProvider =
@@ -85,7 +89,7 @@ class HomeState {
   final int totalColors;
   final int lowStockCount;
   final int totalBeads;
-  final List<PatternItem> recentPatterns;
+  final List<PatternSummary> recentPatterns;
   final bool isLoading;
 
   const HomeState({
@@ -100,29 +104,30 @@ class HomeState {
     int? totalColors,
     int? lowStockCount,
     int? totalBeads,
-    List<PatternItem>? recentPatterns,
+    List<PatternSummary>? recentPatterns,
     bool? isLoading,
-  }) => HomeState(
-    totalColors: totalColors ?? this.totalColors,
-    lowStockCount: lowStockCount ?? this.lowStockCount,
-    totalBeads: totalBeads ?? this.totalBeads,
-    recentPatterns: recentPatterns ?? this.recentPatterns,
-    isLoading: isLoading ?? this.isLoading,
-  );
+  }) =>
+      HomeState(
+        totalColors: totalColors ?? this.totalColors,
+        lowStockCount: lowStockCount ?? this.lowStockCount,
+        totalBeads: totalBeads ?? this.totalBeads,
+        recentPatterns: recentPatterns ?? this.recentPatterns,
+        isLoading: isLoading ?? this.isLoading,
+      );
 }
 
 final homeStateProvider =
     StateNotifierProvider<HomeStateNotifier, HomeState>((ref) {
   final inventoryService = ref.watch(inventoryServiceProvider);
-  final patternsRepo = ref.watch(patternsRepositoryProvider);
-  return HomeStateNotifier(inventoryService, patternsRepo);
+  final loadPatterns = ref.watch(loadPatternsProvider);
+  return HomeStateNotifier(inventoryService, loadPatterns);
 });
 
 class HomeStateNotifier extends StateNotifier<HomeState> {
   final InventoryService _inventoryService;
-  final PatternsRepository _patternsRepository;
+  final LoadPatterns _loadPatterns;
 
-  HomeStateNotifier(this._inventoryService, this._patternsRepository)
+  HomeStateNotifier(this._inventoryService, this._loadPatterns)
       : super(const HomeState()) {
     loadHomeData();
   }
@@ -133,7 +138,7 @@ class HomeStateNotifier extends StateNotifier<HomeState> {
       final lowStock = await _inventoryService.getLowStockColors();
       final all = await _inventoryService.getAllInventory();
       final totalBeads = all.fold<int>(0, (sum, item) => sum + item.currentQty);
-      final recent = await _patternsRepository.getAllPatterns(limit: 3);
+      final recent = await _loadPatterns(limit: 3);
 
       state = state.copyWith(
         lowStockCount: lowStock.length,

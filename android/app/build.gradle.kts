@@ -7,6 +7,24 @@ plugins {
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use(::load)
+    }
+}
+val releaseSigningKeys = listOf(
+    "keyAlias",
+    "keyPassword",
+    "storeFile",
+    "storePassword",
+)
+val hasReleaseSigning = releaseSigningKeys.all {
+    !keystoreProperties.getProperty(it).isNullOrBlank()
+}
+val allowQaDebugSigning =
+    providers.environmentVariable("IDOU_ALLOW_QA_DEBUG_SIGNING").orNull == "true"
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
@@ -32,31 +50,44 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            val keystorePropertiesFile = rootProject.file("key.properties")
-            val keystoreProperties = Properties()
-            if (keystorePropertiesFile.exists()) {
-                keystoreProperties.load(keystorePropertiesFile.inputStream())
+        if (hasReleaseSigning) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
             }
-
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let {
-                file(it)
-            }
-            storePassword = keystoreProperties["storePassword"] as String
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val requestsReleaseArtifact = allTasks.any {
+        it.name == "assembleRelease" || it.name == "bundleRelease"
+    }
+    if (requestsReleaseArtifact && !hasReleaseSigning && !allowQaDebugSigning) {
+        throw GradleException(
+            "Release signing is not configured. Add android/key.properties, " +
+                "or set IDOU_ALLOW_QA_DEBUG_SIGNING=true for a non-production QA build.",
+        )
+    }
+    if (requestsReleaseArtifact && !hasReleaseSigning) {
+        logger.warn("Building a QA artifact with the Android debug signing key.")
     }
 }
 

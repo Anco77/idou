@@ -1,0 +1,470 @@
+schema_version: 1
+project: idou
+updated_at: "2026-08-13"
+source_commit: "958a3f5"
+current_release: "1.3.7"
+target_release: "1.4.0"
+max_in_progress: 1
+status_values: [planned, ready, in_progress, blocked, done, cancelled]
+default_gates: [format, analyze, full_tests, diff_review, docs_update]
+
+phases:
+  - id: S0
+    title: 工程基线
+    exit: Flutter 工具链稳定，当前工作区改动归属明确，自动测试可复现且可信
+  - id: S1
+    title: 领域与数据底座
+    exit: 领域模型、用例边界、schema v3 和受控媒体通过测试
+  - id: S2
+    title: 豆仓可靠性
+    exit: 单色与批量库存原子一致，阈值和流水正确
+  - id: S3
+    title: 图纸识别
+    exit: 样本驱动识别达到质量门槛并有安全门禁
+  - id: S4
+    title: 编辑与图纸闭环
+    exit: 可编辑、保存、扣库、补扣、重启恢复
+  - id: S5
+    title: 图片转图纸
+    exit: 转换进入共享编辑和保存闭环
+  - id: S6
+    title: 导出与发布
+    exit: 导出备份、双平台和发布门禁全部完成
+
+tasks:
+  - id: S0-01
+    phase: S0
+    title: 恢复 Flutter/Dart 工具链基线
+    requirements: [NFR-05, SYS-001]
+    status: done
+    depends_on: []
+    skills: [idou-execute-plan]
+    scope: [environment, docs]
+    acceptance:
+      - flutter doctor、flutter --version、dart --version 在合理时间返回
+      - format、analyze、test 的基线结果和耗时写入执行日志
+      - 工具链仍失败时有精确阻塞原因和最小复现
+    gates: [toolchain_diagnostics, docs_update]
+
+  - id: S0-02
+    phase: S0
+    title: 审查并稳定当前七个保留代码改动
+    requirements: [REC-002, REC-003, REC-005, CONV-001, CONV-004, CONV-006]
+    status: done
+    depends_on: [S0-01]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [modified_worktree_files, focused_tests]
+    acceptance:
+      - 七个文件逐一标记保留、调整或删除并说明依据
+      - 编译错误、格式问题和明显运行时错误清零
+      - 自动网格、空白对白豆、OCR 映射、裁剪坐标有最小回归测试
+    gates: [format, analyze, focused_tests, full_tests, diff_review, docs_update]
+
+  - id: S0-03
+    phase: S0
+    title: 建立工程卫生与版本基线
+    requirements: [NFR-05, SYS-001]
+    status: done
+    depends_on: [S0-02]
+    skills: [idou-execute-plan, idou-release]
+    scope: [tests, gitignore, version_policy, stale_worktree]
+    acceptance:
+      - grid_test 成为可自动断言的标准测试
+      - Git 忽略规则、生成文件策略和版本策略明确
+      - 未注册旧 worktree 经路径校验后清理或记录保留理由
+    gates: [format, analyze, full_tests, git_review, docs_update]
+
+  - id: S0-04
+    phase: S0
+    title: 恢复 Flutter 可复现工具链
+    requirements: [NFR-05, SYS-001]
+    status: done
+    depends_on: [S0-03]
+    skills: [idou-execute-plan, idou-release]
+    scope: [flutter_sdk, dependency_resolution, native_assets, test_runner, environment_docs]
+    acceptance:
+      - flutter doctor -v、flutter --version、dart --version、flutter pub get 均在 120 秒内稳定返回
+      - Flutter SDK lockfile 可正常访问，且已排除残留进程、权限、缓存损坏和 PATH 冲突
+      - dart test 与 flutter test 不再因 native-assets FFI 的 InvalidType 异常在执行测试前崩溃
+      - format、analyze、focused test、full test 的命令、耗时和结果写入执行日志
+      - 根因、修复动作、环境约束和再次复现步骤形成可复用说明
+    gates: [toolchain_diagnostics, dependency_resolution, focused_smoke, format, analyze, full_tests, docs_update]
+
+  - id: S0-05
+    phase: S0
+    title: 重建当前工作区验收基线
+    requirements: [NFR-05, SYS-001]
+    status: done
+    depends_on: [S0-04]
+    skills: [idou-execute-plan]
+    scope: [worktree_audit, task_ownership, verification_matrix, docs]
+    acceptance:
+      - 所有已修改和新增文件均映射到唯一任务，并区分完整实现、部分实现、测试脚手架和越序实现
+      - S0 至 S2 的关键回归重新通过，S3 至 S6 的任务状态与实际验收证据一致
+      - 未经替代实现和完整门禁验证不删除现有代码，不扩大业务功能范围
+      - 输出后续逐任务执行顺序、聚焦测试和完整门禁矩阵
+    gates: [format, analyze, focused_regression, full_tests, git_review, architecture_review, docs_update]
+
+  - id: S1-01
+    phase: S1
+    title: 建立色卡与图纸领域模型
+    requirements: [INV-001, PAT-001, NFR-05]
+    status: done
+    depends_on: [S0-03]
+    skills: [idou-execute-plan]
+    scope: [domain_models, unit_tests]
+    acceptance:
+      - BeadColor、Palette、PatternGrid、PatternCell、PatternDraft 不依赖 Flutter/Drift/IO
+      - 网格聚合用量、空格和手工覆盖有单元测试
+      - 色卡读取不依赖库存 Provider 是否加载
+    gates: [format, analyze, domain_tests, full_tests, architecture_review, docs_update]
+
+  - id: S1-02
+    phase: S1
+    title: 建立 application 用例和基础设施端口
+    requirements: [PAT-003, NFR-05]
+    status: done
+    depends_on: [S1-01]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [application, domain_ports, provider_bootstrap]
+    acceptance:
+      - 页面可依赖用例接口而非新增 DAO/Repository 实现依赖
+      - Clock、AssetStore、OCR、Repository 端口可替换测试
+      - 至少一个现有只读流程迁移验证边界
+    gates: [format, analyze, unit_tests, architecture_review, full_tests, docs_update]
+
+  - id: S1-03
+    phase: S1
+    title: 设计并实现 schema v3 迁移
+    requirements: [PAT-001, PAT-002, PAT-004, NFR-03]
+    status: done
+    depends_on: [S1-01, S1-02]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [drift_schema, migration_fixtures, generated_code]
+    acceptance:
+      - patterns 保存 palette、rows、cols、grid、inventory_deducted 和预览/识别摘要
+      - 新安装、v1→v3、v2→v3 测试通过且旧数据不丢失
+      - 旧图纸被标记 legacy，不伪造网格
+    gates: [format, analyze, migration_tests, foreign_key_check, full_tests, docs_update]
+
+  - id: S1-04
+    phase: S1
+    title: 建立受控媒体存储和补偿清理
+    requirements: [PAT-005, PAT-007, PAT-008, NFR-03]
+    status: done
+    depends_on: [S1-02]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [asset_store, filesystem_tests]
+    acceptance:
+      - 原图、预览和完成照写入受控目录并使用原子重命名
+      - DB 失败会清理本次新增媒体，清理失败可重试
+      - 持久化模型不保存 image_picker 缓存路径
+    gates: [format, analyze, asset_failure_tests, full_tests, docs_update]
+
+  - id: S2-01
+    phase: S2
+    title: 实现原子单色库存操作
+    requirements: [INV-004, NFR-01]
+    status: done
+    depends_on: [S1-02, S1-03]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [inventory_use_case, repository, tests]
+    acceptance:
+      - 补货、消耗、设定数量与流水同事务
+      - 清空后补货可正确 upsert，库存不得为负
+      - 任一写入失败时余额和流水零部分变化
+    gates: [format, analyze, transaction_failure_tests, full_tests, docs_update]
+
+  - id: S2-02
+    phase: S2
+    title: 实现原子批量库存操作
+    requirements: [INV-005, NFR-01]
+    status: done
+    depends_on: [S2-01]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [batch_use_case, bulk_ui, tests]
+    acceptance:
+      - 全部成功或全部失败，不逐色刷新全量库存
+      - 库存不足返回逐项明细且 UI 不误报成功
+      - 并发/条件更新失败可回滚
+    gates: [format, analyze, transaction_failure_tests, widget_tests, full_tests, docs_update]
+
+  - id: S2-03
+    phase: S2
+    title: 统一低库存阈值与页面状态
+    requirements: [INV-002, INV-003, INV-006, SYS-002]
+    status: done
+    depends_on: [S2-01]
+    skills: [idou-execute-plan]
+    scope: [providers, home, inventory_ui, settings]
+    acceptance:
+      - 阈值修改后首页、列表和详情即时一致
+      - 搜索覆盖 MARD 码、名称和内部编号
+      - 加载、空、错误和重试状态有 Widget 测试
+    gates: [format, analyze, provider_tests, widget_tests, full_tests, docs_update]
+
+  - id: S2-04
+    phase: S2
+    title: 完善库存流水和图纸关联
+    requirements: [INV-007, INV-009]
+    status: done
+    depends_on: [S2-01, S1-03]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [movement_model, history_ui, reversal_design]
+    acceptance:
+      - reason 使用受控值且图纸流水可跳转
+      - 历史不可变，撤销设计使用冲正流水
+      - 分页/筛选查询和索引有测试
+    gates: [format, analyze, repository_tests, widget_tests, full_tests, docs_update]
+
+  - id: S3-01
+    phase: S3
+    title: 建立图像样本生成器与 ground truth
+    requirements: [REC-002, REC-005, NFR-05]
+    status: ready
+    depends_on: [S0-05, S1-01]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [test_samples, manifest, metric_runner]
+    acceptance:
+      - 样本授权/生成来源、行列、占用掩码和色号 ground truth 完整
+      - 覆盖空格对白豆、矩形网格、29/52 和扰动输入
+      - 指标运行器输出可机器比较的报告
+    gates: [sample_manifest_validation, deterministic_regression, docs_update]
+
+  - id: S3-02
+    phase: S3
+    title: 实现自动网格候选与坐标模型
+    requirements: [REC-002, REC-009]
+    status: planned
+    depends_on: [S3-01]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [grid_engine, geometry_tests]
+    acceptance:
+      - 输出候选边界、行列、方向、置信度和结构化失败
+      - 支持方形、矩形、截图、扫描和轻度旋转
+      - 合成/扰动网格指标达到当前门槛
+    gates: [format, analyze, geometry_tests, image_metrics, full_tests, docs_update]
+
+  - id: S3-03
+    phase: S3
+    title: 实现本地 OCR 候选与规范化
+    requirements: [REC-003]
+    status: planned
+    depends_on: [S3-01, S3-02]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [ocr_port, tesseract_adapter, parser_tests]
+    acceptance:
+      - hOCR 解析兼容常见引号/标签并保留 bbox/置信度
+      - 字符纠错区分系列位和数字位，非法色号拒绝
+      - OCR 使用网格引擎同一坐标空间
+    gates: [format, analyze, parser_tests, coordinate_tests, android_ocr_smoke, full_tests, docs_update]
+
+  - id: S3-04
+    phase: S3
+    title: 实现颜色分类、融合与质量门禁
+    requirements: [REC-004, REC-005, REC-006, REC-007]
+    status: planned
+    depends_on: [S3-02, S3-03]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [cell_classifier, fusion, quality_gate]
+    acceptance:
+      - 空格与白豆分离，低频一两格颜色不丢失
+      - 每格保留 OCR/颜色候选、来源、色差和置信度
+      - 低质量结果稳定阻止直接扣库且指标达到门槛
+    gates: [format, analyze, colour_tests, fusion_tests, image_metrics, full_tests, docs_update]
+
+  - id: S3-05
+    phase: S3
+    title: 建立可取消的后台识别流程
+    requirements: [REC-008, REC-009]
+    status: planned
+    depends_on: [S3-04, S1-02]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [recognition_use_case, isolate, controller, result_ui]
+    acceptance:
+      - 识别不阻塞 UI，可取消并显示阶段进度
+      - 失败用结构化原因和行动建议表达
+      - 正常导航期间草稿状态可恢复
+    gates: [format, analyze, use_case_tests, widget_tests, performance_smoke, full_tests, docs_update]
+
+  - id: S4-01
+    phase: S4
+    title: 建立共享编辑器状态与撤销重做
+    requirements: [EDIT-002, EDIT-003, EDIT-007]
+    status: planned
+    depends_on: [S1-01, S3-04]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [editor_domain, command_stack, tests]
+    acceptance:
+      - 画笔、橡皮、填充、合并均通过可逆命令修改草稿
+      - 至少 50 步撤销重做，网格与用量始终一致
+      - 可筛选并确认低置信度格
+    gates: [format, analyze, editor_unit_tests, performance_tests, full_tests, docs_update]
+
+  - id: S4-02
+    phase: S4
+    title: 实现跨手机与桌面的图纸编辑 UI
+    requirements: [EDIT-001, EDIT-004, EDIT-005]
+    status: planned
+    depends_on: [S4-01, S2-03]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [editor_ui, palette_picker, accessibility]
+    acceptance:
+      - 触控/鼠标缩放平移和精确选格可用
+      - 色号搜索、相近色、网格/标注开关可用
+      - 52/104 网格交互达到性能目标并有 Widget 测试
+    gates: [format, analyze, widget_tests, golden_tests, performance_smoke, full_tests, docs_update]
+
+  - id: S4-03
+    phase: S4
+    title: 实现仅保存图纸闭环
+    requirements: [PAT-001, PAT-002, PAT-005]
+    status: planned
+    depends_on: [S1-03, S1-04, S4-01]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [save_pattern_use_case, pattern_repository, pattern_ui]
+    acceptance:
+      - 保存最终网格、用量、色卡、来源和受控媒体
+      - 重启后可还原确认过的图纸
+      - 媒体或 DB 失败不产生幽灵记录/孤儿文件
+    gates: [format, analyze, asset_failure_tests, repository_tests, restart_test, full_tests, docs_update]
+
+  - id: S4-04
+    phase: S4
+    title: 实现保存并扣库原子事务
+    requirements: [PAT-003, NFR-01]
+    status: planned
+    depends_on: [S2-01, S4-03]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [save_and_deduct_use_case, transaction_tests]
+    acceptance:
+      - patternId 在扣库前生成且所有流水关联正确
+      - 库存不足或任一写入失败时数据库和媒体零部分状态
+      - 网格、用量、库存和流水对账一致
+    gates: [format, analyze, exhaustive_failure_injection, repository_tests, full_tests, docs_update]
+
+  - id: S4-05
+    phase: S4
+    title: 实现补扣、完成记录与资源清理
+    requirements: [PAT-004, PAT-007, PAT-008]
+    status: planned
+    depends_on: [S4-04, S2-04]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [pattern_detail, deduct_saved, completion, cleanup]
+    acceptance:
+      - 未扣图纸只能成功补扣一次
+      - 完成照持久化失败不保存无效路径
+      - 删除图纸保留库存历史且专属资源可重试清理
+    gates: [format, analyze, transaction_failure_tests, asset_failure_tests, widget_tests, full_tests, docs_update]
+
+  - id: S5-01
+    phase: S5
+    title: 稳定真实裁剪和目标网格尺寸
+    requirements: [CONV-001, CONV-002]
+    status: planned
+    depends_on: [S0-02, S4-02]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [crop_ui, coordinate_mapping, size_model]
+    acceptance:
+      - 裁剪显示坐标和原图像素坐标双向一致
+      - 支持 29/52/78/104 与 16～156 自定义尺寸
+      - EXIF 方向、极端纵横比和边界拖动有测试
+    gates: [format, analyze, coordinate_tests, widget_tests, full_tests, docs_update]
+
+  - id: S5-02
+    phase: S5
+    title: 实现转换采样策略
+    requirements: [CONV-003, CONV-005]
+    status: planned
+    depends_on: [S5-01, S1-01, S3-01]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [conversion_engine, sampling_tests]
+    acceptance:
+      - 照片均值、像素图中心、插画众数可选择且确定性
+      - 非空格全部映射到选定色卡并记录色差
+      - 转换不依赖库存初始化状态
+    gates: [format, analyze, conversion_tests, image_metrics, full_tests, docs_update]
+
+  - id: S5-03
+    phase: S5
+    title: 实现背景策略与限色合并
+    requirements: [CONV-004, CONV-006]
+    status: planned
+    depends_on: [S5-02, S4-01]
+    skills: [idou-execute-plan, idou-image-pipeline]
+    scope: [background, palette_reduction, undo]
+    acceptance:
+      - 透明/白背景可配置且不会简单误删浅色主体
+      - 限色、低频色和相近色合并可撤销
+      - 用量与网格实时一致并有保护样本
+    gates: [format, analyze, image_regression, editor_unit_tests, full_tests, docs_update]
+
+  - id: S5-04
+    phase: S5
+    title: 实现可选轮廓清理并接入共享闭环
+    requirements: [CONV-007, PAT-001, PAT-003]
+    status: planned
+    depends_on: [S5-03, S4-04]
+    skills: [idou-execute-plan, idou-image-pipeline, idou-data-integrity]
+    scope: [cleanup_filters, conversion_flow, shared_save]
+    acceptance:
+      - 去孤点、补缺口和轮廓优化可开关并可撤销
+      - 转换结果只使用共享编辑器和保存/扣库用例
+      - 删除旧独立保存扣库代码后回归测试通过
+    gates: [format, analyze, image_metrics, transaction_tests, widget_tests, full_tests, docs_update]
+
+  - id: S6-01
+    phase: S6
+    title: 实现图纸 PNG、PDF 与 CSV 导出
+    requirements: [EXP-001, EXP-002, EXP-003]
+    status: planned
+    depends_on: [S4-02, S4-03]
+    skills: [idou-execute-plan]
+    scope: [export_use_cases, renderers, golden_tests]
+    acceptance:
+      - PNG 支持背景、网格、色号和行列号开关
+      - PDF 含分页图纸、图例和用量，CSV 含库存缺口
+      - 输出可重复且通过渲染/Golden 检查
+    gates: [format, analyze, export_tests, golden_tests, full_tests, docs_update]
+
+  - id: S6-02
+    phase: S6
+    title: 实现完整备份与恢复
+    requirements: [INV-008, EXP-004, NFR-03]
+    status: planned
+    depends_on: [S1-03, S1-04, S4-05]
+    skills: [idou-execute-plan, idou-data-integrity]
+    scope: [backup_restore, manifest, integrity_checks]
+    acceptance:
+      - 备份包含 DB、设置和媒体 manifest/hash
+      - 恢复前校验版本与内容，失败不覆盖现有数据
+      - 完整往返恢复后库存、流水、图纸和资源一致
+    gates: [format, analyze, roundtrip_tests, failure_injection, full_tests, docs_update]
+
+  - id: S6-03
+    phase: S6
+    title: 完成双平台与更新安全验证
+    requirements: [SYS-001, SYS-003, SYS-004, SYS-005]
+    status: planned
+    depends_on: [S6-01, S6-02, S5-04]
+    skills: [idou-execute-plan, idou-release]
+    scope: [android, windows, offline, updater]
+    acceptance:
+      - Android/Windows 核心流程和目标构建通过
+      - 离线模式完成豆仓、识图、转换、编辑和导出
+      - 更新包校验 SHA-256，Windows 未完成安装时明确禁用
+    gates: [full_gate, android_build, windows_build, offline_smoke, update_integrity, docs_update]
+
+  - id: S6-04
+    phase: S6
+    title: 准备并交付 1.4.0
+    requirements: [SYS-001, NFR-01, NFR-03, NFR-05]
+    status: planned
+    depends_on: [S6-03]
+    skills: [idou-execute-plan, idou-release]
+    scope: [version, changelog, artifacts, git, release]
+    acceptance:
+      - 全量 Release Checklist 签字且无未解释 P0 问题
+      - 版本、schema、version.json、tag、notes、制品和哈希一致
+      - 获得用户授权后提交、推送、打标签并验证远端发布
+    gates: [release_gate, artifact_checksums, user_authorization, remote_verification, docs_update]

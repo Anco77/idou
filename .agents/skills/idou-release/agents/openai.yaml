@@ -1,0 +1,5 @@
+interface:
+  display_name: "idou 发布交付"
+  short_description: "执行全量质量门禁版本更新Git交付构建发布与文档归档"
+  default_prompt: "Use $idou-release to verify and prepare idou for a repository release."
+

@@ -126,19 +126,28 @@ class MainShell extends ConsumerWidget {
         type: BottomNavigationBarType.fixed,
         onTap: (i) {
           switch (i) {
-            case 0: context.go('/home');
-            case 1: context.go('/inventory');
-            case 2: context.go('/patterns');
-            case 3: context.go('/ai-generate');
-            case 4: context.go('/profile');
+            case 0:
+              context.go('/home');
+            case 1:
+              context.go('/inventory');
+            case 2:
+              context.go('/patterns');
+            case 3:
+              context.go('/ai-generate');
+            case 4:
+              context.go('/profile');
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: '首页'),
-          BottomNavigationBarItem(icon: Icon(Icons.inventory_2_outlined), label: '库存'),
-          BottomNavigationBarItem(icon: Icon(Icons.picture_as_pdf_outlined), label: '图纸'),
-          BottomNavigationBarItem(icon: Icon(Icons.auto_awesome_outlined), label: 'AI生成'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: '我的'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.inventory_2_outlined), label: '库存'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.picture_as_pdf_outlined), label: '图纸'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.auto_awesome_outlined), label: 'AI生成'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline), label: '我的'),
         ],
       ),
     );

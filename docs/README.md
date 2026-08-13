@@ -13,6 +13,7 @@
 7. [AI 执行日志](AI_PROGRESS.md)：每次执行的证据与下次入口。
 8. [发布清单](RELEASE_CHECKLIST.md)：候选版本从验证到 Git/制品发布的签字表。
 9. [当前工作区验收基线](WORKTREE_BASELINE.md)：未提交改动的唯一任务归属、状态分类和后续验证矩阵。
+10. [Android 发布签名管理](ANDROID_SIGNING.md)：仓库外密钥位置、证书指纹、构建和灾备要求（不包含密码）。
 
 ## 文档状态约定
 

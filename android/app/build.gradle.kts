@@ -7,7 +7,10 @@ plugins {
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val keystorePropertiesFile = rootProject.file("key.properties")
+val externalKeyProperties =
+    providers.environmentVariable("IDOU_ANDROID_KEY_PROPERTIES").orNull
+val keystorePropertiesFile =
+    externalKeyProperties?.let(::file) ?: rootProject.file("key.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
         keystorePropertiesFile.inputStream().use(::load)

@@ -410,3 +410,15 @@
 - Authentication: HTTPS 直连受网络阻断，未向第三方代理发送 GitHub token；改用 GitHub 官方 `ssh.github.com:443`。收紧本机 `~/.ssh/id_rsa` ACL，仅保留当前用户与 SYSTEM 后，GitHub 成功识别账户 `Anco77`。
 - Version safety: 本地和 GitHub 均不存在 `v1.4.0`；未创建 tag、GitHub Release，未更新公开 `pubspec.yaml`/`version.json` 的 `1.3.7` 基线。
 - Next: 从任务板的下一个 `ready` 项继续验收；合并 checkpoint 到 `main`、上传 QA APK 或创建预发布均需要单独审核。
+
+## 2026-08-14 — ANDROID-SIGNING-RECOVERY — done
+
+- Goal: 找回 `v1.3.7` 发布密钥，迁移到仓库外受控位置，并生成具备真实升级资格的 alpha APK。
+- Evidence: 回收站 `upload-keystore.jks` 的 alias 为 `upload`，证书 SHA-256 为 `0535EED85C0791B93D1FE4670D8ED008C99E8A9E473B9F9367DA49630513F28F`，与 GitHub `v1.3.7` APK 完全相同；配套 `key.properties` 位于同一已删除项目目录。
+- Security: 将 keystore 与配置迁移到 `E:\project\idou\.secrets\android-release`；源/目标 keystore SHA-256 均为 `71C10F39497559B11C171E4B4413713B3844276839C3D26E2D10DF3F92090513`。目录和文件 ACL 仅保留当前用户与 SYSTEM；校验和正式签名构建成功后，回收站的两份残留已删除。密码未输出、未写入文档或 Git。
+- Changes: Gradle 支持通过 `IDOU_ANDROID_KEY_PROPERTIES` 读取仓库外配置；缺少 release signing 时仍默认拒绝 release 构建。新增 `docs/ANDROID_SIGNING.md`，记录非敏感身份、构建、验证和灾备流程。
+- Artifact: `build/releases/idou-android-universal-v1.4.0-alpha.1+2101-release-signed.apk`，98,888,470 bytes，SHA-256 `E601CDB0FBC22B6489D5C18F3D3E1C6C88CC5B0C073DA0B41298D770323182CB`。
+- Gates: Microsoft OpenJDK 21 正式签名 release 构建成功；`apkanalyzer` 验证 applicationId `com.example.idou`、versionName `1.4.0-alpha.1`、versionCode `2101`；`apksigner` 验证 v2 签名和与 `v1.3.7` 完全相同的证书；完整发布门禁再次通过（100 个 Dart 文件格式零变化、静态分析无 error/warning、65 项测试全部通过）。
+- Backup: F 盘确认属于独立物理磁盘 Disk 0（E 盘属于 Disk 1）；创建启用文件名加密的 7zAES 归档 `F:\idou-secure-backup\android-release\idou-android-release-signing-2026-08-14.7z`，完整解密测试通过，SHA-256 为 `A3EFE0CB365D3136F5DB364A0A366C59BDA7A539FB8B77A838B639F755FFA659`，ACL 仅保留当前用户与 SYSTEM。
+- Risks/blocker: 异盘副本仍是常在线本机磁盘，不能替代离线或异地加密备份；没有 Android 设备，真实 `1.3.7 → alpha` 数据升级和离线冒烟仍待执行。
+- Next: 连接备用 Android 设备，按升级检查表安装 `v1.3.7`、建立测试数据、使用 `adb install -r` 覆盖为 `+2101` 并验证数据与离线核心流程。

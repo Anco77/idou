@@ -400,3 +400,13 @@
 - Docs: 新增 `docs/releases/1.4.0-alpha.1.md`，记录用户变化、门禁、校验值与已知限制。
 - Risks/blocker: 当前没有 Android 设备，未执行安装、1.3.7→alpha 升级保留数据和真机离线冒烟；QA 包使用 Android Debug 证书，不能作为正式发布或覆盖正式签名安装。正式 `1.4.0` 仍需 release keystore、S6-04 门禁和用户最终确认。
 - Next: 将当前已验收成果与保留的后续候选实现整理为 checkpoint 分支提交并推送；不创建任何版本标签或 GitHub Release。
+
+## 2026-08-13 — S2-DELIVERY — done
+
+- Goal: 安全保存并远程交付当前 checkpoint，不改动 `main`，不创建正式版本标签或 Release。
+- Changes: 创建分支 `checkpoint/1.4.0-alpha.1`，将 S0～S2 已验收成果及任务板中明确标记为未完成的 S3～S6 候选实现整体保存为 checkpoint；源码提交不包含被 Git 忽略的 APK、构建目录、JDK 缓存或密钥。
+- Commit: `a3253c04fb98895827488524f921a7047ebd247c`（`feat: checkpoint 1.4.0 alpha foundation [S2-CHECKPOINT]`）。
+- Remote verification: GitHub 远端 `refs/heads/checkpoint/1.4.0-alpha.1` 与本地提交哈希完全一致；PR 入口为 `https://github.com/Anco77/idou/pull/new/checkpoint/1.4.0-alpha.1`。
+- Authentication: HTTPS 直连受网络阻断，未向第三方代理发送 GitHub token；改用 GitHub 官方 `ssh.github.com:443`。收紧本机 `~/.ssh/id_rsa` ACL，仅保留当前用户与 SYSTEM 后，GitHub 成功识别账户 `Anco77`。
+- Version safety: 本地和 GitHub 均不存在 `v1.4.0`；未创建 tag、GitHub Release，未更新公开 `pubspec.yaml`/`version.json` 的 `1.3.7` 基线。
+- Next: 从任务板的下一个 `ready` 项继续验收；合并 checkpoint 到 `main`、上传 QA APK 或创建预发布均需要单独审核。
